@@ -1,0 +1,121 @@
+log_mow:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    date:
+      selector:
+        date:
+    height_in:
+      selector:
+        number:
+          min: 0.5
+          max: 8
+          step: 0.05
+          unit_of_measurement: in
+correct_last_mow:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    height_in:
+      required: true
+      selector:
+        number:
+          min: 0.5
+          max: 8
+          step: 0.05
+          unit_of_measurement: in
+log_seeding:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    date:
+      selector:
+        date:
+seedlings_ready:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+log_event:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    kind:
+      required: true
+      selector:
+        select:
+          options:
+            - fert
+            - pgr
+          translation_key: event_kind
+    date:
+      selector:
+        date:
+prep_overseed:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    seed_date:
+      required: true
+      selector:
+        date:
+    target_in:
+      selector:
+        number:
+          min: 0.5
+          max: 8
+          step: 0.05
+          unit_of_measurement: in
+    buffer_days:
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: d
+cancel_overseed:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+evaluate_now: {}

@@ -1,0 +1,39 @@
+{
+  "entity": {
+    "sensor": {
+      "days_until_due": {"default": "mdi:calendar-clock"},
+      "budget_used": {"default": "mdi:sprout"},
+      "growth_today": {"default": "mdi:sprout-outline"},
+      "accumulated_growth": {"default": "mdi:grass"},
+      "growth_potential": {"default": "mdi:thermometer-lines"},
+      "mode": {"default": "mdi:grass"},
+      "recommended_cut_height": {"default": "mdi:ruler"},
+      "last_cut_height": {"default": "mdi:content-cut"},
+      "overseed_status": {"default": "mdi:seed"},
+      "soil_moisture_used": {"default": "mdi:water-percent"},
+      "seedling_height_estimate": {"default": "mdi:seed-outline"}
+    },
+    "binary_sensor": {
+      "mow_due": {"default": "mdi:mower"},
+      "mowing_allowed": {"default": "mdi:mower"}
+    },
+    "button": {
+      "log_mow": {"default": "mdi:mower"},
+      "log_seeding": {"default": "mdi:seed"},
+      "seedlings_ready": {"default": "mdi:sprout"},
+      "log_fertilizer": {"default": "mdi:shaker-outline"},
+      "log_pgr": {"default": "mdi:flask-outline"},
+      "evaluate_now": {"default": "mdi:refresh"}
+    }
+  },
+  "services": {
+    "log_mow": {"service": "mdi:mower"},
+    "correct_last_mow": {"service": "mdi:pencil"},
+    "log_seeding": {"service": "mdi:seed"},
+    "seedlings_ready": {"service": "mdi:sprout"},
+    "log_event": {"service": "mdi:shaker-outline"},
+    "prep_overseed": {"service": "mdi:arrow-collapse-down"},
+    "cancel_overseed": {"service": "mdi:close"},
+    "evaluate_now": {"service": "mdi:refresh"}
+  }
+}

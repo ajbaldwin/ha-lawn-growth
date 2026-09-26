@@ -1,0 +1,262 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Lawn Growth",
+        "description": "Where the model gets its weather, and how it reaches you.",
+        "data": {
+          "weather_entity": "Weather",
+          "season_entity": "Mowing-season switch",
+          "notify_service": "Notify",
+          "run_time": "Daily run time"
+        },
+        "data_description": {
+          "weather_entity": "Supplies today's high/low and the 10-day forecast.",
+          "season_entity": "Optional. When off, the lawn is out of season. Leave empty for always in season.",
+          "notify_service": "Optional. Where mow-due, first-mow and overseed pushes go.",
+          "run_time": "When the day's growth is added and pushes are sent."
+        }
+      },
+      "area_basics": {
+        "title": "Mowing area",
+        "description": "A mowing area is a stretch of lawn you mow together. Most lawns need one.",
+        "data": {"name": "Name", "grass": "Grass type"}
+      },
+      "area_details": {
+        "title": "{name}",
+        "description": "Defaults come from the grass type; change anything.",
+        "data": {
+          "curve": "Growth curve",
+          "cut_min_in": "Lowest cut height",
+          "cut_max_in": "Highest cut height",
+          "overseed_target_in": "Overseed target height",
+          "moisture_sensors": "Soil moisture sensors",
+          "wilting_moisture": "Growth stops at or below",
+          "comfortable_moisture": "Full growth at or above",
+          "mow_source_entity": "Mow signal (optional)",
+          "mow_source_mode": "Mow signal type",
+          "mower_locations": "Mower locations in this area",
+          "max_growth_rate_mm": "Maximum growth per day (mm)"
+        },
+        "data_description": {
+          "moisture_sensors": "Averaged. GeoDrops sensors are quality-checked automatically.",
+          "wilting_moisture": "Moisture reading where growth stops (GeoDrops index default 40). For a volumetric % sensor, use its dry reading.",
+          "comfortable_moisture": "Moisture reading with no water stress (GeoDrops index default 67). For a volumetric % sensor, use its field-capacity reading.",
+          "mow_source_entity": "For mowers without a mower integration, e.g. a counter that increases after each mow.",
+          "mower_locations": "Values of the mower's location sensor that belong to this area."
+        }
+      }
+    },
+    "error": {
+      "cut_range": "The highest cut height must be above the lowest.",
+      "overseed_target": "The overseed target must be below the highest cut height.",
+      "moisture_band": "Full-growth moisture must be above the growth-stops value.",
+      "location_in_use": "A mower location can belong to only one area.",
+      "invalid_name": "Enter a name for the mowing area."
+    },
+    "abort": {
+      "single_instance_allowed": "Lawn Growth is already set up. Add mowing areas from its Configure menu."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Lawn Growth",
+        "menu_options": {
+          "area_basics": "Add a mowing area",
+          "edit_area": "Edit a mowing area",
+          "remove_area": "Remove a mowing area",
+          "settings": "Lawn settings",
+          "mower": "Mower"
+        }
+      },
+      "area_basics": {
+        "title": "Mowing area",
+        "description": "A mowing area is a stretch of lawn you mow together.",
+        "data": {"name": "Name", "grass": "Grass type"}
+      },
+      "area_details": {
+        "title": "{name}",
+        "description": "Defaults come from the grass type; change anything.",
+        "data": {
+          "curve": "Growth curve",
+          "cut_min_in": "Lowest cut height",
+          "cut_max_in": "Highest cut height",
+          "overseed_target_in": "Overseed target height",
+          "moisture_sensors": "Soil moisture sensors",
+          "wilting_moisture": "Growth stops at or below",
+          "comfortable_moisture": "Full growth at or above",
+          "mow_source_entity": "Mow signal (optional)",
+          "mow_source_mode": "Mow signal type",
+          "mower_locations": "Mower locations in this area",
+          "max_growth_rate_mm": "Maximum growth per day (mm)"
+        },
+        "data_description": {
+          "moisture_sensors": "Averaged. GeoDrops sensors are quality-checked automatically.",
+          "wilting_moisture": "Moisture reading where growth stops (GeoDrops index default 40). For a volumetric % sensor, use its dry reading.",
+          "comfortable_moisture": "Moisture reading with no water stress (GeoDrops index default 67). For a volumetric % sensor, use its field-capacity reading.",
+          "mow_source_entity": "For mowers without a mower integration, e.g. a counter that increases after each mow.",
+          "mower_locations": "Values of the mower's location sensor that belong to this area."
+        }
+      },
+      "edit_area": {"title": "Edit a mowing area", "data": {"area": "Mowing area"}},
+      "remove_area": {"title": "Remove a mowing area", "data": {"area": "Mowing area"}},
+      "settings": {
+        "title": "Lawn settings",
+        "data": {
+          "weather_entity": "Weather",
+          "season_entity": "Mowing-season switch",
+          "notify_service": "Notify",
+          "run_time": "Daily run time"
+        }
+      },
+      "mower": {
+        "title": "Mower",
+        "description": "Optional. Lets Lawn Growth log mows (and the blade height) itself, however the mower was started. Clear the activity entity to turn this off.",
+        "data": {
+          "activity_entity": "Mower activity",
+          "working_states": "States that mean mowing",
+          "blade_entity": "Blade height",
+          "location_entity": "Mower location",
+          "grace_minutes": "Session ends after (minutes idle)",
+          "min_area_minutes": "Minimum time in an area to count (minutes)"
+        }
+      }
+    },
+    "error": {
+      "cut_range": "The highest cut height must be above the lowest.",
+      "overseed_target": "The overseed target must be below the highest cut height.",
+      "moisture_band": "Full-growth moisture must be above the growth-stops value.",
+      "location_in_use": "A mower location can belong to only one area.",
+      "required_with_mower": "Required when a mower is configured.",
+      "invalid_name": "Enter a name for the mowing area."
+    },
+    "abort": {"last_area": "A lawn needs at least one mowing area."}
+  },
+  "entity": {
+    "sensor": {
+      "days_until_due": {"name": "Days until mow due"},
+      "budget_used": {"name": "Growth budget used"},
+      "growth_today": {"name": "Growth today"},
+      "accumulated_growth": {"name": "Accumulated growth"},
+      "growth_potential": {"name": "Growth potential"},
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "out_of_season": "Out of season",
+          "establishment": "Establishing",
+          "first_mow_ready": "First mow ready",
+          "dormant": "Dormant",
+          "heat_hold": "Heat hold",
+          "overseed_prep": "Overseed prep",
+          "normal": "Normal"
+        }
+      },
+      "recommended_cut_height": {"name": "Recommended cut height"},
+      "last_cut_height": {"name": "Last cut height"},
+      "overseed_status": {"name": "Overseed status"},
+      "soil_moisture_used": {"name": "Soil moisture used"},
+      "seedling_height_estimate": {"name": "Seedling height estimate"}
+    },
+    "binary_sensor": {
+      "mow_due": {"name": "Mow due"},
+      "mowing_allowed": {"name": "Mowing allowed"}
+    },
+    "button": {
+      "log_mow": {"name": "Log mow"},
+      "log_seeding": {"name": "Log seeding"},
+      "seedlings_ready": {"name": "Seedlings ready"},
+      "log_fertilizer": {"name": "Log fertilizer"},
+      "log_pgr": {"name": "Log PGR"},
+      "evaluate_now": {"name": "Evaluate now"}
+    }
+  },
+  "services": {
+    "log_mow": {
+      "name": "Log mow",
+      "description": "Record a mow for the targeted mowing areas.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to log this mow for."},
+        "date": {"name": "Date", "description": "Day of the mow. Defaults to today."},
+        "height_in": {"name": "Cut height", "description": "Height the lawn was cut to. Defaults to the last cut height."}
+      }
+    },
+    "correct_last_mow": {
+      "name": "Correct last mow",
+      "description": "Fix the cut height recorded for the most recent mow.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to correct the last mow for."},
+        "height_in": {"name": "Cut height", "description": "The height the lawn was actually cut to."}
+      }
+    },
+    "log_seeding": {
+      "name": "Log seeding",
+      "description": "Record a seeding; mowing is held until the seedlings are ready.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to log this seeding for."},
+        "date": {"name": "Date", "description": "Day of seeding. Defaults to today."}
+      }
+    },
+    "seedlings_ready": {
+      "name": "Seedlings ready",
+      "description": "Confirm the new grass is ready for its first mow.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas whose seedlings are ready."}
+      }
+    },
+    "log_event": {
+      "name": "Log fertilizer or PGR",
+      "description": "Record a fertilizer or plant-growth-regulator application.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to apply this to."},
+        "kind": {"name": "Kind", "description": "What was applied."},
+        "date": {"name": "Date", "description": "Day of application. Defaults to today."}
+      }
+    },
+    "prep_overseed": {
+      "name": "Prepare for overseeding",
+      "description": "Step the cut height down to the overseed target ahead of a seed date.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to prepare for overseeding."},
+        "seed_date": {"name": "Seed date", "description": "Planned overseeding day."},
+        "target_in": {"name": "Target height", "description": "Height to reach before seeding. Defaults to the area's overseed target."},
+        "buffer_days": {"name": "Buffer days", "description": "Reach the target this many days before the seed date. Default 7."}
+      }
+    },
+    "cancel_overseed": {
+      "name": "Cancel overseed prep",
+      "description": "Stop preparing the targeted mowing areas for overseeding.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to cancel overseed prep for."}
+      }
+    },
+    "evaluate_now": {
+      "name": "Evaluate now",
+      "description": "Re-run the growth model now and send any due notifications."
+    }
+  },
+  "selector": {
+    "event_kind": {"options": {"fert": "Fertilizer", "pgr": "Plant growth regulator"}},
+    "grass": {"options": {
+      "tttf_kbg": "Tall fescue / tall fescue–bluegrass blend",
+      "kbg": "Kentucky bluegrass",
+      "ryegrass": "Perennial ryegrass",
+      "fine_fescue": "Fine fescue",
+      "bermuda_zoysia": "Bermuda / Zoysia",
+      "st_augustine": "St. Augustine",
+      "custom": "Custom"
+    }},
+    "curve": {"options": {"cool": "Cool-season", "warm": "Warm-season"}},
+    "mow_mode": {"options": {
+      "number_increases": "A number that goes up after each mow",
+      "any_change": "Any change means a mow"
+    }}
+  },
+  "exceptions": {
+    "no_seeding": {"message": "No seeding has been logged for this mowing area."},
+    "no_mow": {"message": "No mow has been recorded for this mowing area yet."},
+    "not_an_area": {"message": "Device {device_id} is not a Lawn Growth mowing area."},
+    "no_overseed": {"message": "{area} uses a warm-season grass type; overseed prep is not available."},
+    "future_date": {"message": "The date can't be in the future."}
+  }
+}

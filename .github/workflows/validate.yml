@@ -9,8 +9,6 @@ on:
 jobs:
   hassfest:
     name: hassfest
-    # Disabled for now at the operator's request. Remove this line to re-enable.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -18,9 +16,6 @@ jobs:
 
   hacs:
     name: HACS
-    # Disabled while the repository is private (HACS validation can't read its files).
-    # Remove this line when the repository goes public.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

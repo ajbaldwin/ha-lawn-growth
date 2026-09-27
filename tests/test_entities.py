@@ -7,6 +7,7 @@ from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
 from custom_components.lawn_growth.button import AREA_BUTTONS
+from custom_components.lawn_growth.date import DATE_KEYS
 from custom_components.lawn_growth.sensor import SENSOR_SPECS
 
 from .common import FLAT_68, NOW, TODAY, area, daily, make_entry, register_weather, setup
@@ -30,7 +31,7 @@ async def test_entity_ids_and_names(hass, freezer):
                    | {f"binary_sensor.{p}_{k}" for k in BINARY_KEYS}
                    | {f"button.{p}_{k}" for k in AREA_BUTTONS}
                    | {"button.lawn_growth_evaluate_now"}
-                   | {f"date.{p}_seeding_date"})
+                   | {f"date.{p}_{k}" for k in DATE_KEYS})
     due = hass.states.get(f"sensor.{p}_days_until_due")
     assert due.state == "5" and due.attributes["days"] == 5
     assert due.attributes["friendly_name"] == "Front & Side Days until mow due"
@@ -114,3 +115,56 @@ async def test_overseed_status_reports_seeding_attributes(hass, freezer):
     assert st.attributes["days_since_seeding"] == 3
     assert st.attributes["seedling_height_in"] == 0.0     # before germination
     assert 3.0 <= st.attributes["first_mow_target_in"] <= 3.9
+
+
+async def test_last_mow_date_entity(hass, freezer):
+    entry = await _setup(hass, freezer)
+    p = "lawn_growth_front_side"
+    eid = f"date.{p}_last_mow"
+
+    async def set_date(value: str):
+        await hass.services.async_call("date", "set_value",
+                                       {"entity_id": eid, "date": value}, blocking=True)
+
+    assert hass.states.get(eid).state == "unknown"
+
+    past = TODAY - timedelta(days=2)
+    await set_date(past.isoformat())
+    assert hass.states.get(eid).state == past.isoformat()
+    state = entry.runtime_data.store.areas["front_side"]
+    assert state.last_mow == past
+    assert state.mow_records[-1].height_in == 3.9 and state.mow_records[-1].source == "manual"
+
+    future = TODAY + timedelta(days=1)
+    with pytest.raises(ServiceValidationError):
+        await set_date(future.isoformat())
+
+    # a date older than the stored last mow is kept as history only (existing
+    # model rule) -- the entity keeps showing the newer date.
+    older = TODAY - timedelta(days=10)
+    await set_date(older.isoformat())
+    assert hass.states.get(eid).state == past.isoformat()
+    assert len(entry.runtime_data.store.areas["front_side"].mow_records) == 2
+
+
+async def test_last_fertilizer_and_pgr_date_entities(hass, freezer):
+    entry = await _setup(hass, freezer)
+    p = "lawn_growth_front_side"
+
+    async def set_date(eid: str, value: str):
+        await hass.services.async_call("date", "set_value",
+                                       {"entity_id": eid, "date": value}, blocking=True)
+
+    for suffix, kind in (("last_fertilizer", "fert"), ("last_pgr", "pgr")):
+        eid = f"date.{p}_{suffix}"
+        assert hass.states.get(eid).state == "unknown"
+
+        past = TODAY - timedelta(days=4)
+        await set_date(eid, past.isoformat())
+        assert hass.states.get(eid).state == past.isoformat()
+        events = entry.runtime_data.store.events_for("front_side")
+        assert any(e.kind == kind and e.applied == past for e in events)
+
+        future = TODAY + timedelta(days=1)
+        with pytest.raises(ServiceValidationError):
+            await set_date(eid, future.isoformat())

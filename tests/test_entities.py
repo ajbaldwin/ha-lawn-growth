@@ -6,7 +6,6 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
-from custom_components.lawn_growth.button import AREA_BUTTONS
 from custom_components.lawn_growth.date import DATE_KEYS
 from custom_components.lawn_growth.sensor import SENSOR_SPECS
 
@@ -29,7 +28,7 @@ async def test_entity_ids_and_names(hass, freezer):
     p = "lawn_growth_front_side"
     assert ids == ({f"sensor.{p}_{s.key}" for s in SENSOR_SPECS}
                    | {f"binary_sensor.{p}_{k}" for k in BINARY_KEYS}
-                   | {f"button.{p}_{k}" for k in AREA_BUTTONS}
+                   | {f"button.{p}_log_mow", f"button.{p}_seedlings_ready"}
                    | {"button.lawn_growth_evaluate_now"}
                    | {f"date.{p}_{k}" for k in DATE_KEYS})
     due = hass.states.get(f"sensor.{p}_days_until_due")
@@ -53,7 +52,8 @@ async def test_buttons(hass, freezer):
 
     with pytest.raises(HomeAssistantError):
         await press(f"button.{p}_seedlings_ready")
-    await press(f"button.{p}_log_seeding")
+    await hass.services.async_call("date", "set_value", {"entity_id": f"date.{p}_seeding_date",
+                                   "date": TODAY.isoformat()}, blocking=True)
     assert hass.states.get(f"sensor.{p}_mode").state == "establishment"
     assert hass.states.get(f"binary_sensor.{p}_mowing_allowed").state == "off"
     await press(f"button.{p}_seedlings_ready")
@@ -62,9 +62,28 @@ async def test_buttons(hass, freezer):
     # a mow on the seeding day itself does not end establishment
     state = entry.runtime_data.store.areas["front_side"]
     assert state.last_mow == TODAY and state.seeding_date == TODAY
-    await press(f"button.{p}_log_fertilizer")
-    assert [e.kind for e in entry.runtime_data.store.events_for("front_side")] == ["fert"]
     await press("button.lawn_growth_evaluate_now")
+
+
+async def test_upgrade_removes_retired_buttons(hass, freezer):
+    """Log seeding / fertilizer / PGR buttons were replaced by the date pickers; an
+    install that had them loses the registry entries instead of keeping them as
+    unavailable orphans."""
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    freezer.move_to(NOW)
+    register_weather(hass, daily_rows=daily(TODAY, FLAT_68))
+    entry = make_entry(hass, areas=[area(key="front_side", name="Front & Side")])
+    registry = er.async_get(hass)
+    retired = ("log_seeding", "log_fertilizer", "log_pgr")
+    for suffix in retired:
+        registry.async_get_or_create("button", "lawn_growth",
+                                     f"{entry.entry_id}_front_side_{suffix}",
+                                     config_entry=entry,
+                                     suggested_object_id=f"lawn_growth_front_side_{suffix}")
+    await setup(hass, entry)
+    for suffix in retired:
+        assert registry.async_get(f"button.lawn_growth_front_side_{suffix}") is None
+        assert hass.states.get(f"button.lawn_growth_front_side_{suffix}") is None
 
 
 def test_growth_potential_shows_three_decimals():
@@ -94,11 +113,6 @@ async def test_seeding_date_entity(hass, freezer):
     future = TODAY + timedelta(days=1)
     with pytest.raises(ServiceValidationError):
         await set_date(future.isoformat())
-
-    # the button still logs "seeded today", overwriting the earlier date entirely
-    await hass.services.async_call("button", "press",
-                                   {"entity_id": f"button.{p}_log_seeding"}, blocking=True)
-    assert hass.states.get(eid).state == TODAY.isoformat()
 
 
 async def test_overseed_status_reports_seeding_attributes(hass, freezer):

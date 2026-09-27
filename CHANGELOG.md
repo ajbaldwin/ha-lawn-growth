@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.4 — Fewer, safer buttons
+- **Removed the Log seeding, Log fertilizer and Log PGR buttons.** The Seeding date, Last fertilizer and Last PGR date entities from beta.3 do the same job with the date in view. Log seeding was also easy to tap by mistake: it reset an area's seeding date to today, restarting establishment. Upgrading removes the old button entities; if a dashboard or automation used them, switch it to the date entity or the matching service (`lawn_growth.log_seeding`, `lawn_growth.log_event`), which are unchanged.
+- **Log mow and Seedlings ready stay.** Log mow is still the one-tap way to record today's mow.
+
 ## 0.1.0-beta.3 — Seeding dates
 - **Pick dates for mows, seeding, fertilizer and PGR from a calendar.** Each mowing area now has Seeding date, Last mow, Last fertilizer and Last PGR pickers, so you're not limited to logging them as today. Seeding date corrects the stored date directly; the others log on the date you pick. Fixes the Log seeding button silently overwriting an earlier, correct seeding date.
 - **Overseed status now covers establishment.** After a seeding, it reads "establishing" while the seedlings grow in and "first mow ready" once they're tall enough, instead of "inactive".

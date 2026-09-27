@@ -6,11 +6,12 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import CoreState, HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.start import async_at_started
 
 from . import services
+from .button import RETIRED_AREA_BUTTONS
 from .const import (AREA_KEY, AREA_LOCATIONS, AREA_MOW_MODE, AREA_MOW_SOURCE, CONF_AREAS,
                     CONF_MOWER, CONF_RUN_TIME, DEFAULT_RUN_TIME, DOMAIN, MOW_MODE_INCREASES)
 from .coordinator import LawnGrowthCoordinator
@@ -36,7 +37,20 @@ async def async_setup(hass: HomeAssistant, config) -> bool:
     return True
 
 
+@callback
+def _remove_retired_entities(hass: HomeAssistant, entry: LawnGrowthConfigEntry) -> None:
+    """Drop registry entries for buttons a newer version no longer creates, so they
+    don't linger as unavailable orphans."""
+    registry = er.async_get(hass)
+    for area in entry.options.get(CONF_AREAS, []):
+        for suffix in RETIRED_AREA_BUTTONS:
+            unique_id = f"{entry.entry_id}_{area[AREA_KEY]}_{suffix}"
+            if entity_id := registry.async_get_entity_id("button", DOMAIN, unique_id):
+                registry.async_remove(entity_id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: LawnGrowthConfigEntry) -> bool:
+    _remove_retired_entities(hass, entry)
     store = LawnStore(hass, entry.entry_id)
     await store.async_load([a[AREA_KEY] for a in entry.options.get(CONF_AREAS, [])])
     coordinator = LawnGrowthCoordinator(hass, entry, store)

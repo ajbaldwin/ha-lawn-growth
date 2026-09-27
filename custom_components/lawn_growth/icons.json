@@ -19,10 +19,7 @@
     },
     "button": {
       "log_mow": {"default": "mdi:mower"},
-      "log_seeding": {"default": "mdi:seed"},
       "seedlings_ready": {"default": "mdi:sprout"},
-      "log_fertilizer": {"default": "mdi:shaker-outline"},
-      "log_pgr": {"default": "mdi:flask-outline"},
       "evaluate_now": {"default": "mdi:refresh"}
     },
     "date": {

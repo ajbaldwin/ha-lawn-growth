@@ -59,7 +59,7 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Last fertilizer, Last PGR | set either to log an application on that date (each set adds one, it doesn't correct one); goes back to empty once the record ages past 35 days. Setting the date already shown does nothing |
 | Soil moisture used, Seedling height estimate | diagnostics |
 
-Buttons per area: **Log mow**, **Log seeding**, **Seedlings ready**, **Log fertilizer**, **Log PGR**. Lawn-wide: **Evaluate now**.
+Buttons per area: **Log mow** (one tap for today, at the last cut height) and **Seedlings ready**. Lawn-wide: **Evaluate now**. Log seedings, fertilizer and PGR with their date entities.
 
 ## Services
 

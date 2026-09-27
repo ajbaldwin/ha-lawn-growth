@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.3 — Seeding dates
+- **Set a seeding date directly.** Each mowing area now has a Seeding date picker, so you can log or correct a seeding without it always being today — fixes the Log seeding button silently overwriting an earlier, correct date.
+- **Overseed status now covers establishment.** After a seeding, it reads "establishing" while the seedlings grow in and "first mow ready" once they're tall enough, instead of "inactive".
+- Overseed status gains attributes: seeding date, days since seeding, estimated seedling height and the first-mow target height.
+
 ## 0.1.0-beta.2 — Clearer setup
 - **Weather picked for you.** Initial setup now pre-selects `weather.home` or `weather.forecast_home` when one exists, or your only weather entity, so most people won't need to touch that field.
 - **What a mowing area is, spelled out**, with an example, both when adding your first one and from the Configure menu — plus a note that the device Home Assistant creates for it doesn't need to be assigned to a Home Assistant area.

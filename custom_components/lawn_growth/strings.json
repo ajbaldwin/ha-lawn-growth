@@ -170,10 +170,7 @@
     },
     "button": {
       "log_mow": {"name": "Log mow"},
-      "log_seeding": {"name": "Log seeding"},
       "seedlings_ready": {"name": "Seedlings ready"},
-      "log_fertilizer": {"name": "Log fertilizer"},
-      "log_pgr": {"name": "Log PGR"},
       "evaluate_now": {"name": "Evaluate now"}
     },
     "date": {

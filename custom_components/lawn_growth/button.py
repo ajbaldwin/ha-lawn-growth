@@ -9,7 +9,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .entity import LawnGrowthEntity
 
-AREA_BUTTONS = ("log_mow", "log_seeding", "seedlings_ready", "log_fertilizer", "log_pgr")
+AREA_BUTTONS = ("log_mow", "seedlings_ready")
+# Replaced by the Seeding date / Last fertilizer / Last PGR pickers in 0.1.0-beta.4.
+RETIRED_AREA_BUTTONS = ("log_seeding", "log_fertilizer", "log_pgr")
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -28,18 +30,12 @@ class AreaButton(LawnGrowthEntity, ButtonEntity):
         c, key = self.coordinator, self._area_key
         if self._suffix == "log_mow":
             await c.async_log_mow(key)
-        elif self._suffix == "log_seeding":
-            await c.async_log_seeding(key)
         elif self._suffix == "seedlings_ready":
             try:
                 await c.async_seedlings_ready(key)
             except ValueError as err:
                 raise HomeAssistantError(translation_domain=DOMAIN,
                                          translation_key="no_seeding") from err
-        elif self._suffix == "log_fertilizer":
-            await c.async_log_event("fert", [key])
-        elif self._suffix == "log_pgr":
-            await c.async_log_event("pgr", [key])
 
 
 class EvaluateNowButton(CoordinatorEntity, ButtonEntity):

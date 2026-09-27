@@ -51,6 +51,14 @@ def test_first_mow_ready_once():
     assert _decide(r, s)[0] == []
 
 
+def test_no_overseed_push_during_establishment():
+    # overseed_active is always False while establishing (prep only overlays
+    # normal/heat_hold), so the "establishing" status must not trigger a push.
+    r = _result(mode="establishment", mow_due=False, mowing_allowed=False,
+               overseed_active=False, overseed_status="establishing")
+    assert _decide(r)[0] == []
+
+
 def test_overseed_pass_push_deduped_by_last_mow():
     st = AreaState(last_mow=date(2026, 9, 22))
     r = _result(mode="overseed_prep", mow_due=False, overseed_active=True,

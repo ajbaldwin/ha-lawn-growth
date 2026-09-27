@@ -191,6 +191,16 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
             dud = op.next_mow_in_days if dud is None else min(dud, op.next_mow_in_days)
             mode = "overseed_prep"
 
+    # While seedlings establish, overseed prep can't be active (it only overlays
+    # DUE_MODES), so the plain "inactive" status would misleadingly read as if
+    # nothing is going on. Report the establishment stage instead.
+    overseed_status = op.status
+    if not op.active and s.seeding_date is not None:
+        if mode == "establishment":
+            overseed_status = "establishing"
+        elif mode == "first_mow_ready":
+            overseed_status = "first mow ready"
+
     allowed = mode != "establishment"
     result = AreaResult(
         mode=mode, phase=phase, gp=gp, growth_today_mm=growth_today,
@@ -204,7 +214,7 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
         moisture=inp.moisture, moisture_source=inp.moisture_source,
         moisture_sensors_used=tuple(inp.moisture_sensors_used),
         low_gp_streak=s.low_gp_streak, overseed_active=op.active,
-        overseed_status=op.status,
+        overseed_status=overseed_status,
         overseed_target_in=op.target_in if op.active else None,
         overseed_arrival_date=op.arrival_date.isoformat() if op.arrival_date else None,
         overseed_feasible=op.feasible,

@@ -7,6 +7,7 @@ from typing import Any, Callable
 from homeassistant.components.sensor import (
     SensorDeviceClass, SensorEntity, SensorStateClass)
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfLength
+from homeassistant.util import dt as dt_util
 
 from .entity import LawnGrowthEntity
 from .model.modes import MODES
@@ -31,6 +32,20 @@ def _last_record(r, s) -> dict:
             "source": rec.source if rec else None}
 
 
+def _overseed_attrs(r, s) -> dict:
+    seeding_date = s.seeding_date
+    days_since = (dt_util.now().date() - seeding_date).days if seeding_date else None
+    seedling_in = None if r.seedling_height_in is None else round(r.seedling_height_in, 2)
+    return {"target_in": r.overseed_target_in,
+            "arrival_date": r.overseed_arrival_date,
+            "feasible": r.overseed_feasible,
+            "earliest_seed_date": r.overseed_earliest_date,
+            "seeding_date": seeding_date.isoformat() if seeding_date else None,
+            "days_since_seeding": days_since,
+            "seedling_height_in": seedling_in,
+            "first_mow_target_in": r.first_mow_target_in}
+
+
 _IN = dict(unit=UnitOfLength.INCHES, device_class=SensorDeviceClass.DISTANCE, precision=2)
 _MM = dict(unit=UnitOfLength.MILLIMETERS, device_class=SensorDeviceClass.DISTANCE, precision=2)
 
@@ -51,10 +66,7 @@ SENSOR_SPECS = (
     AreaSensorSpec(key="last_cut_height", value=lambda r, s: r.last_cut_in,
                    attrs=_last_record, **_IN),
     AreaSensorSpec(key="overseed_status", value=lambda r, s: r.overseed_status,
-                   attrs=lambda r, s: {"target_in": r.overseed_target_in,
-                                       "arrival_date": r.overseed_arrival_date,
-                                       "feasible": r.overseed_feasible,
-                                       "earliest_seed_date": r.overseed_earliest_date}),
+                   attrs=_overseed_attrs),
     AreaSensorSpec(key="soil_moisture_used", value=lambda r, s: round(r.moisture, 1),
                    precision=1, diagnostic=True,
                    attrs=lambda r, s: {"source": r.moisture_source,

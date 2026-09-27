@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -47,3 +48,8 @@ class LawnStore:
     def events_for(self, area_key: str) -> list[ManagementEvent]:
         return [ManagementEvent(kind=e["kind"], applied=date.fromisoformat(e["date"]))
                 for e in self.events if area_key in e["areas"]]
+
+    def latest_event_date(self, area_key: str, kind: str) -> Optional[date]:
+        dates = [date.fromisoformat(e["date"]) for e in self.events
+                if area_key in e["areas"] and e["kind"] == kind]
+        return max(dates) if dates else None

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
 from custom_components.lawn_growth.button import AREA_BUTTONS
+from custom_components.lawn_growth.date import DATE_KEYS
 from custom_components.lawn_growth.model.modes import MODES
 from custom_components.lawn_growth.sensor import SENSOR_SPECS
 
@@ -24,6 +25,7 @@ def test_every_entity_has_a_name_and_no_extras():
     assert set(ent["sensor"]) == {s.key for s in SENSOR_SPECS}
     assert set(ent["binary_sensor"]) == set(BINARY_KEYS)
     assert set(ent["button"]) == set(AREA_BUTTONS) | {"evaluate_now"}
+    assert set(ent["date"]) == set(DATE_KEYS)
     for platform in ent.values():
         for entry in platform.values():
             assert entry["name"]

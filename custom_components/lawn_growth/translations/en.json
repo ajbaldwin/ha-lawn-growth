@@ -177,7 +177,10 @@
       "evaluate_now": {"name": "Evaluate now"}
     },
     "date": {
-      "seeding_date": {"name": "Seeding date"}
+      "seeding_date": {"name": "Seeding date"},
+      "last_mow": {"name": "Last mow"},
+      "last_fertilizer": {"name": "Last fertilizer"},
+      "last_pgr": {"name": "Last PGR"}
     }
   },
   "services": {

@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.1.0-beta.3 — Seeding dates
-- **Set a seeding date directly.** Each mowing area now has a Seeding date picker, so you can log or correct a seeding without it always being today — fixes the Log seeding button silently overwriting an earlier, correct date.
+- **Pick dates for mows, seeding, fertilizer and PGR from a calendar.** Each mowing area now has Seeding date, Last mow, Last fertilizer and Last PGR pickers, so you can log or correct any of them without it always being today — fixes the Log seeding (and other) buttons silently overwriting an earlier, correct date.
 - **Overseed status now covers establishment.** After a seeding, it reads "establishing" while the seedlings grow in and "first mow ready" once they're tall enough, instead of "inactive".
 - Overseed status gains attributes: seeding date, days since seeding, estimated seedling height and the first-mow target height.
 

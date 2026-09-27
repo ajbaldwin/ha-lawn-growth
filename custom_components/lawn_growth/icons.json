@@ -26,7 +26,10 @@
       "evaluate_now": {"default": "mdi:refresh"}
     },
     "date": {
-      "seeding_date": {"default": "mdi:seed"}
+      "seeding_date": {"default": "mdi:seed"},
+      "last_mow": {"default": "mdi:mower"},
+      "last_fertilizer": {"default": "mdi:shaker-outline"},
+      "last_pgr": {"default": "mdi:flask-outline"}
     }
   },
   "services": {

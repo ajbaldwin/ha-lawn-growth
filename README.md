@@ -55,6 +55,8 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Mow due / Mowing allowed | binary sensors for automations |
 | Growth today, Accumulated growth, Growth potential, Overseed status | details — Overseed status reads "establishing" then "first mow ready" while a seeding grows in |
 | Seeding date | set it to log or correct a seeding; empty when none is in progress |
+| Last mow | set it to log or correct a mow date; a date older than the one already stored is kept as history only — it won't reset the growth budget or move the stored last-mow date — so the entity keeps showing the newer date |
+| Last fertilizer, Last PGR | set either to log or correct an application date; goes back to empty once the record ages past 35 days |
 | Soil moisture used, Seedling height estimate | diagnostics |
 
 Buttons per area: **Log mow**, **Log seeding**, **Seedlings ready**, **Log fertilizer**, **Log PGR**. Lawn-wide: **Evaluate now**.

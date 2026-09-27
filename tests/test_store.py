@@ -40,3 +40,16 @@ async def test_events_pruned_after_35_days(hass):
     store.add_event("pgr", date(2026, 8, 1), ["lawn"], date(2026, 8, 1))
     store.add_event("fert", date(2026, 9, 26), ["lawn"], date(2026, 9, 26))
     assert [e["kind"] for e in store.events] == ["fert"]
+
+
+async def test_latest_event_date(hass):
+    store = LawnStore(hass, "abc")
+    await store.async_load(["lawn", "other"])
+    assert store.latest_event_date("lawn", "fert") is None
+    store.add_event("fert", date(2026, 9, 1), ["lawn"], date(2026, 9, 26))
+    store.add_event("fert", date(2026, 9, 15), ["lawn", "other"], date(2026, 9, 26))
+    store.add_event("pgr", date(2026, 9, 20), ["lawn"], date(2026, 9, 26))
+    assert store.latest_event_date("lawn", "fert") == date(2026, 9, 15)
+    assert store.latest_event_date("lawn", "pgr") == date(2026, 9, 20)
+    assert store.latest_event_date("other", "fert") == date(2026, 9, 15)
+    assert store.latest_event_date("other", "pgr") is None

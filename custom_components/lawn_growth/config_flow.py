@@ -152,12 +152,56 @@ def _unique_key(name: str, existing: set) -> str:
     return key
 
 
-def _first_matching(entity_ids: list, keywords: tuple) -> str | None:
-    """First entity_id containing a keyword, trying keywords in priority order."""
+_LENGTH_UNITS = {"in", "mm", "cm", "m", "ft"}
+
+
+def _device_slug(hass, device_id: str) -> str:
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        return ""
+    return slugify(device.name_by_user or device.name or "")
+
+
+def _match_target(entity_id: str, device_slug: str) -> str:
+    """The entity_id's object part, with the device-name slug prefix removed when
+    present — so a device named e.g. "Area 51 mower" doesn't make every one of its
+    sensors match the keyword "area" — falling back to the full object part when the
+    slug isn't a prefix of it."""
+    obj = entity_id.split(".", 1)[1]
+    if device_slug and obj.startswith(f"{device_slug}_"):
+        return obj[len(device_slug) + 1:]
+    return obj
+
+
+def _first_matching(entity_ids: list, device_slug: str, keywords: tuple) -> str | None:
+    """First entity_id whose match target contains a keyword, keywords tried in
+    priority order."""
     for keyword in keywords:
         for entity_id in entity_ids:
-            if keyword in entity_id:
+            if keyword in _match_target(entity_id, device_slug):
                 return entity_id
+    return None
+
+
+def _is_length_reading(hass, entity_id: str) -> bool:
+    st = hass.states.get(entity_id)
+    if st is None:
+        return False
+    if st.attributes.get("device_class") == "distance":
+        return True
+    return st.attributes.get("unit_of_measurement") in _LENGTH_UNITS
+
+
+def _blade_suggestion(hass, sensors: list, device_slug: str) -> str | None:
+    """The blade-height sensor: an exact "blade_height" match, else the first "blade"
+    sensor that actually reports a length (a mower's blade-usage-time sensor, for
+    example, should never be suggested), else none."""
+    exact = _first_matching(sensors, device_slug, ("blade_height",))
+    if exact:
+        return exact
+    for entity_id in sensors:
+        if "blade" in _match_target(entity_id, device_slug) and _is_length_reading(hass, entity_id):
+            return entity_id
     return None
 
 
@@ -173,10 +217,12 @@ def _mower_suggestions(hass) -> dict:
     registry = er.async_get(hass)
     entry = registry.async_get(activity)
     if entry is not None and entry.device_id is not None:
+        device_slug = _device_slug(hass, entry.device_id)
         sensors = [e.entity_id for e in er.async_entries_for_device(registry, entry.device_id)
                    if e.domain == "sensor"]
-        blade = _first_matching(sensors, ("blade",))
-        location = _first_matching(sensors, ("work_area", "area", "zone", "location"))
+        blade = _blade_suggestion(hass, sensors, device_slug)
+        location = _first_matching(sensors, device_slug,
+                                   ("work_area", "area", "zone", "location"))
         if blade:
             suggestions[c.MOWER_BLADE] = blade
         if location:

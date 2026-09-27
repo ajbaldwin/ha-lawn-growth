@@ -63,6 +63,7 @@ async def test_full_setup_creates_entry(hass):
 
 async def test_weather_default_prefers_weather_home(hass):
     hass.states.async_set("weather.home", "sunny")
+    hass.states.async_set("weather.forecast_home", "sunny")   # weather.home still wins
     hass.states.async_set("weather.other", "sunny")
     r = await hass.config_entries.flow.async_init(c.DOMAIN, context={"source": "user"})
     assert _defaults(r)[c.CONF_WEATHER] == "weather.home"
@@ -275,6 +276,112 @@ async def test_mower_prefill_skipped_when_already_configured(hass):
     assert d[c.MOWER_ACTIVITY] == "sensor.saved_act"
     assert d[c.MOWER_BLADE] == "sensor.saved_blade"
     assert d[c.MOWER_LOCATION] == "sensor.saved_loc"
+
+
+async def test_blade_prefers_blade_height_over_earlier_blade_sensor(hass):
+    """A blade-usage-time sensor registered first must not shadow the real
+    blade-height sensor registered after it."""
+    entry = _entry(hass)
+    config = MockConfigEntry(domain="mammotion")
+    config.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=config.entry_id, identifiers={("mammotion", "x")})
+    reg = er.async_get(hass)
+    mower = reg.async_get_or_create("lawn_mower", "mammotion", "x_mower",
+                                    config_entry=config, device_id=device.id,
+                                    suggested_object_id="x")
+    used_time = reg.async_get_or_create("sensor", "mammotion", "x_blade_used_time",
+                                        config_entry=config, device_id=device.id,
+                                        suggested_object_id="x_blade_used_time")
+    hass.states.async_set(used_time.entity_id, "12", {"unit_of_measurement": "h"})
+    height = reg.async_get_or_create("sensor", "mammotion", "x_blade_height",
+                                     config_entry=config, device_id=device.id,
+                                     suggested_object_id="x_blade_height")
+    hass.states.async_set(height.entity_id, "3.5", {"unit_of_measurement": "in"})
+    hass.states.async_set(mower.entity_id, "mowing")
+    r = await _menu(hass, entry, "mower")
+    assert _defaults(r)[c.MOWER_BLADE] == "sensor.x_blade_height"
+
+
+async def test_blade_fallback_requires_a_length_unit(hass):
+    entry = _entry(hass)
+    config = MockConfigEntry(domain="mammotion")
+    config.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=config.entry_id, identifiers={("mammotion", "y")})
+    reg = er.async_get(hass)
+    mower = reg.async_get_or_create("lawn_mower", "mammotion", "y_mower",
+                                    config_entry=config, device_id=device.id,
+                                    suggested_object_id="y")
+    wrong_unit = reg.async_get_or_create("sensor", "mammotion", "y_blade_used_time",
+                                         config_entry=config, device_id=device.id,
+                                         suggested_object_id="y_blade_used_time")
+    hass.states.async_set(wrong_unit.entity_id, "12", {"unit_of_measurement": "h"})
+    hass.states.async_set(mower.entity_id, "mowing")
+    r = await _menu(hass, entry, "mower")
+    assert _defaults(r).get(c.MOWER_BLADE) is None    # "blade" but not a length: no suggestion
+
+    length_ok = reg.async_get_or_create("sensor", "mammotion", "y_blade_gauge",
+                                        config_entry=config, device_id=device.id,
+                                        suggested_object_id="y_blade_gauge")
+    hass.states.async_set(length_ok.entity_id, "3.0", {"unit_of_measurement": "mm"})
+    r = await _menu(hass, entry, "mower")
+    assert _defaults(r)[c.MOWER_BLADE] == "sensor.y_blade_gauge"
+
+
+async def test_location_keyword_ignores_device_name_words(hass):
+    """A device named with a location-ish word (here "Area 51 Mower") must not make
+    every one of its sensors match the "area" keyword."""
+    entry = _entry(hass)
+    config = MockConfigEntry(domain="mammotion")
+    config.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=config.entry_id, identifiers={("mammotion", "z")},
+        name="Area 51 Mower")
+    reg = er.async_get(hass)
+    mower = reg.async_get_or_create("lawn_mower", "mammotion", "z_mower",
+                                    config_entry=config, device_id=device.id,
+                                    suggested_object_id="area_51_mower")
+    battery = reg.async_get_or_create("sensor", "mammotion", "z_battery",
+                                      config_entry=config, device_id=device.id,
+                                      suggested_object_id="area_51_mower_battery")
+    location = reg.async_get_or_create("sensor", "mammotion", "z_location",
+                                       config_entry=config, device_id=device.id,
+                                       suggested_object_id="area_51_mower_location")
+    hass.states.async_set(mower.entity_id, "mowing")
+    r = await _menu(hass, entry, "mower")
+    assert _defaults(r)[c.MOWER_LOCATION] == location.entity_id
+    assert battery.entity_id != location.entity_id
+
+
+async def test_mower_prefill_ignores_unregistered_lawn_mower_state(hass):
+    """A lawn_mower entity that's just a bare state (no entity_registry entry) still
+    suggests the activity entity and working states, but nothing device-based."""
+    entry = _entry(hass)
+    hass.states.async_set("lawn_mower.bare", "mowing")
+    r = await _menu(hass, entry, "mower")
+    d = _defaults(r)
+    assert d[c.MOWER_ACTIVITY] == "lawn_mower.bare"
+    assert d[c.MOWER_WORKING] == ["mowing", "paused"]
+    assert d.get(c.MOWER_BLADE) is None and d.get(c.MOWER_LOCATION) is None
+
+
+async def test_mower_prefill_ignores_entity_with_no_device(hass):
+    """A registered lawn_mower entity with no device_id also only suggests the
+    activity entity and working states."""
+    entry = _entry(hass)
+    reg = er.async_get(hass)
+    config = MockConfigEntry(domain="mammotion")
+    config.add_to_hass(hass)
+    mower = reg.async_get_or_create("lawn_mower", "mammotion", "no_device",
+                                    config_entry=config, suggested_object_id="no_device")
+    assert mower.device_id is None
+    hass.states.async_set(mower.entity_id, "mowing")
+    r = await _menu(hass, entry, "mower")
+    d = _defaults(r)
+    assert d[c.MOWER_ACTIVITY] == mower.entity_id
+    assert d[c.MOWER_WORKING] == ["mowing", "paused"]
+    assert d.get(c.MOWER_BLADE) is None and d.get(c.MOWER_LOCATION) is None
 
 
 async def test_mower_removed_when_activity_cleared(hass):

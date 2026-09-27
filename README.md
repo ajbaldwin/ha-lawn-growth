@@ -19,12 +19,12 @@ Betas (`X.Y.Z-beta.N`) are published as GitHub pre-releases. HACS offers them on
 
 ## Setup
 
-- **Weather** (required): any weather entity with a daily (or hourly) forecast.
+- **Weather** (required): any weather entity with a daily (or hourly) forecast. Pre-selected with `weather.home` or `weather.forecast_home` if you have one, or your only weather entity.
 - **Mowing-season switch** (optional): when it is off, the lawn is out of season.
 - **Notify** (optional): where pushes go.
 - **Daily run time** (default 05:00): when the day's growth is added.
 
-Then add a **mowing area** — a stretch of lawn you mow together. Most lawns need one. Pick a **grass type**; it sets the growth curve and default heights, all editable:
+Then add a **mowing area** — a stretch of lawn you mow together, for example "Front & Side" and "Back". Most lawns need one to start; add more later from the integration's **Configure → Add a mowing area**. Each mowing area becomes its own device with its own advice; assigning that device to a Home Assistant area afterwards is optional and doesn't affect the advice. Pick a **grass type**; it sets the growth curve and default heights, all editable:
 
 | Grass type | Season | Cut range | Overseed target |
 |---|---|---|---|
@@ -35,13 +35,13 @@ Then add a **mowing area** — a stretch of lawn you mow together. Most lawns ne
 | Bermuda / Zoysia | warm | 1.0–2.0″ | — |
 | St. Augustine | warm | 2.5–4.0″ | — |
 
-Optional per area: **soil moisture sensors** (averaged; GeoDrops sensors are quality-checked automatically) and a **mow signal** entity (for example a counter that goes up after each mow).
+Optional per area: **soil moisture sensors** (averaged; GeoDrops sensors are quality-checked automatically) and a **mow counter** — for mowers without an integration, an entity that changes after each mow, such as a counter that goes up by one. Leave it empty if you'll set up a robot mower below.
 
 Add more areas, edit them, or set up a mower from the integration's **Configure** menu.
 
 ## Robot mowers
 
-Under **Configure → Mower**, pick the mower's activity entity (and which states mean it is mowing), its blade-height sensor and its location sensor, then assign location values to areas. Lawn Growth then records each run itself: every area the mower spent at least 10 minutes (configurable) in gets a mow at the blade height it actually used (time-weighted if the height changed mid-run). This works whether the run was started from Home Assistant or the mower's own app.
+Under **Configure → Mower settings**, pick the mower's activity entity (and which states mean it is mowing — include paused states so a pause doesn't split a run), its blade-height sensor and its location sensor. If you have exactly one lawn-mower entity, these are suggested for you from it and from sensors on the same device; review and save, or change anything first. Then, under **Configure → Edit a mowing area**, pick which of the location sensor's names (for example "Backyard" or "Front Yard" — on a Mammotion/Luba it's the work-area sensor) belong to each mowing area; names you don't assign to any area, like "path" or "Not working", are ignored. Lawn Growth then records each run itself: every area the mower spent at least 10 minutes (configurable) in gets a mow at the blade height it actually used (time-weighted if the height changed mid-run). This works whether the run was started from Home Assistant or the mower's own app.
 
 ## Entities (per mowing area)
 

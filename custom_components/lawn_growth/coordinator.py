@@ -45,6 +45,10 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
             results, messages = await self._evaluate(send_notifications=send_notifications)
         except UpdateFailed as err:
             _LOGGER.warning("Lawn Growth evaluation skipped: %s", err)
+            # A mutation (e.g. a date picker) may have just saved to the Store even
+            # though today's evaluation couldn't run; refresh store-backed entities
+            # so they show it without waiting for the forecast to come back.
+            self.async_update_listeners()
             return
         # Publish before awaiting the sends: a mutation that runs while a send is in
         # flight publishes newer results, which these must not overwrite afterwards.

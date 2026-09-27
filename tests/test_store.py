@@ -45,11 +45,23 @@ async def test_events_pruned_after_35_days(hass):
 async def test_latest_event_date(hass):
     store = LawnStore(hass, "abc")
     await store.async_load(["lawn", "other"])
-    assert store.latest_event_date("lawn", "fert") is None
-    store.add_event("fert", date(2026, 9, 1), ["lawn"], date(2026, 9, 26))
-    store.add_event("fert", date(2026, 9, 15), ["lawn", "other"], date(2026, 9, 26))
-    store.add_event("pgr", date(2026, 9, 20), ["lawn"], date(2026, 9, 26))
-    assert store.latest_event_date("lawn", "fert") == date(2026, 9, 15)
-    assert store.latest_event_date("lawn", "pgr") == date(2026, 9, 20)
-    assert store.latest_event_date("other", "fert") == date(2026, 9, 15)
-    assert store.latest_event_date("other", "pgr") is None
+    today = date(2026, 9, 26)
+    assert store.latest_event_date("lawn", "fert", today) is None
+    store.add_event("fert", date(2026, 9, 1), ["lawn"], today)
+    store.add_event("fert", date(2026, 9, 15), ["lawn", "other"], today)
+    store.add_event("pgr", date(2026, 9, 20), ["lawn"], today)
+    assert store.latest_event_date("lawn", "fert", today) == date(2026, 9, 15)
+    assert store.latest_event_date("lawn", "pgr", today) == date(2026, 9, 20)
+    assert store.latest_event_date("other", "fert", today) == date(2026, 9, 15)
+    assert store.latest_event_date("other", "pgr", today) is None
+
+
+async def test_latest_event_date_ignores_events_past_retention(hass):
+    # An event added long ago is not re-pruned until the next add_event call;
+    # latest_event_date must still ignore it once it's older than the window,
+    # rather than reporting a date the picker has effectively forgotten.
+    store = LawnStore(hass, "abc")
+    await store.async_load(["lawn"])
+    store.events.append({"kind": "fert", "date": "2026-08-01", "areas": ["lawn"]})
+    assert store.latest_event_date("lawn", "fert", date(2026, 9, 26)) is None
+    assert store.latest_event_date("lawn", "fert", date(2026, 8, 20)) == date(2026, 8, 1)

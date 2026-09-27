@@ -168,3 +168,58 @@ async def test_last_fertilizer_and_pgr_date_entities(hass, freezer):
         future = TODAY + timedelta(days=1)
         with pytest.raises(ServiceValidationError):
             await set_date(eid, future.isoformat())
+
+
+async def test_date_entity_set_value_noop_when_unchanged(hass, freezer):
+    entry = await _setup(hass, freezer)
+    p = "lawn_growth_front_side"
+
+    async def set_date(eid: str, value: str):
+        await hass.services.async_call("date", "set_value",
+                                       {"entity_id": eid, "date": value}, blocking=True)
+
+    # seeding_date: re-setting the shown date must not clear seedlings_ready
+    seed = TODAY - timedelta(days=25)
+    await set_date(f"date.{p}_seeding_date", seed.isoformat())
+    await hass.services.async_call("button", "press",
+                                   {"entity_id": f"button.{p}_seedlings_ready"}, blocking=True)
+    state = entry.runtime_data.store.areas["front_side"]
+    assert state.seedlings_ready is True
+    await set_date(f"date.{p}_seeding_date", seed.isoformat())
+    assert entry.runtime_data.store.areas["front_side"].seedlings_ready is True
+
+    # last_mow: re-setting the shown date must not add a duplicate record
+    mow_date = TODAY - timedelta(days=1)
+    await set_date(f"date.{p}_last_mow", mow_date.isoformat())
+    count = len(entry.runtime_data.store.areas["front_side"].mow_records)
+    await set_date(f"date.{p}_last_mow", mow_date.isoformat())
+    assert len(entry.runtime_data.store.areas["front_side"].mow_records) == count
+
+    # last_fertilizer / last_pgr: re-setting the shown date must not add a
+    # duplicate event
+    for suffix, kind in (("last_fertilizer", "fert"), ("last_pgr", "pgr")):
+        eid = f"date.{p}_{suffix}"
+        d = TODAY - timedelta(days=3)
+        await set_date(eid, d.isoformat())
+        count = len([e for e in entry.runtime_data.store.events_for("front_side")
+                    if e.kind == kind])
+        await set_date(eid, d.isoformat())
+        assert len([e for e in entry.runtime_data.store.events_for("front_side")
+                   if e.kind == kind]) == count
+
+
+async def test_date_entity_updates_after_mutation_when_forecast_fails(hass, freezer):
+    entry = await _setup(hass, freezer)
+    p = "lawn_growth_front_side"
+    eid = f"date.{p}_last_mow"
+
+    # Simulate the weather integration losing its forecast (both kinds unsupported):
+    # the run inside the mutation raises UpdateFailed, but the Store write already
+    # happened and the date picker must still show it.
+    register_weather(hass)
+
+    past = TODAY - timedelta(days=1)
+    await hass.services.async_call("date", "set_value",
+                                   {"entity_id": eid, "date": past.isoformat()}, blocking=True)
+    assert hass.states.get(eid).state == past.isoformat()
+    assert entry.runtime_data.store.areas["front_side"].last_mow == past

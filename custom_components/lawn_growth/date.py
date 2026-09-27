@@ -1,4 +1,5 @@
-"""Per-area date pickers: set or correct a seeding, mow, fertilizer or PGR date."""
+"""Per-area date pickers: seeding_date replaces the stored date; the others log a
+new record/event on the chosen date."""
 from __future__ import annotations
 
 from datetime import date
@@ -37,10 +38,15 @@ class AreaDateEntity(LawnGrowthEntity, DateEntity):
         if self._suffix == "last_mow":
             return self.area_state.last_mow
         return self.coordinator.store.latest_event_date(
-            self._area_key, _EVENT_KIND[self._suffix])
+            self._area_key, _EVENT_KIND[self._suffix], dt_util.now().date())
 
     async def async_set_value(self, value: date) -> None:
         _reject_future(value)
+        if value == self.native_value:
+            # Already showing this date: logging it again would add a duplicate
+            # fert/PGR event, reset the growth accumulator on a same-day mow, or
+            # (for seeding_date) clear seedlings_ready for no reason.
+            return
         c, key = self.coordinator, self._area_key
         if self._suffix == "seeding_date":
             await c.async_log_seeding(key, on=value)

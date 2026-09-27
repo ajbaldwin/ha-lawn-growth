@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
@@ -49,7 +48,12 @@ class LawnStore:
         return [ManagementEvent(kind=e["kind"], applied=date.fromisoformat(e["date"]))
                 for e in self.events if area_key in e["areas"]]
 
-    def latest_event_date(self, area_key: str, kind: str) -> Optional[date]:
+    def latest_event_date(self, area_key: str, kind: str, today: date) -> date | None:
+        """Most recent stored date for this area/kind, ignoring anything older than
+        the retention window (matches add_event's pruning, for events that predate
+        the last add_event prune but have since aged out)."""
+        cutoff = today - timedelta(days=EVENT_RETENTION_DAYS)
         dates = [date.fromisoformat(e["date"]) for e in self.events
-                if area_key in e["areas"] and e["kind"] == kind]
+                if area_key in e["areas"] and e["kind"] == kind
+                and date.fromisoformat(e["date"]) >= cutoff]
         return max(dates) if dates else None

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-beta.2 — Clearer setup
+- **Weather picked for you.** Initial setup now pre-selects `weather.home` or `weather.forecast_home` when one exists, or your only weather entity, so most people won't need to touch that field.
+- **What a mowing area is, spelled out**, with an example, both when adding your first one and from the Configure menu — plus a note that the device Home Assistant creates for it doesn't need to be assigned to a Home Assistant area.
+- **Friendlier mow-counter wording.** The field for mowers without an integration is now called "Mow counter (mowers without an integration)" with a plain-language description of what it's for.
+- **"Mower" renamed to "Mower settings"** in the Configure menu, so it reads as configuration rather than a status page.
+- **Mower settings pre-fill themselves.** With exactly one lawn-mower entity, Configure → Mower settings now suggests it as the activity entity, defaults the working states to mowing and paused, and — from sensors on the same device — suggests a blade-height and a location sensor. Nothing is saved until you submit the form.
+- **Clearer location-mapping help**, with a worked example for mapping a mower's location sensor values to your mowing areas.
+
 ## 0.1.0-beta.1 — First beta
 - **Mowing advice from growing conditions.** Each mowing area gets a growth model driven by your weather forecast and (optionally) soil moisture: how much the grass has grown since the last cut, when the next mow is due, and whether heat or dormancy should hold it off.
 - **Seasonal cut heights.** A recommended height that follows the season — taller in summer stress, lower for spring green-up and the fall wind-down — within the range for your grass type, and never more than a third off in one mow.

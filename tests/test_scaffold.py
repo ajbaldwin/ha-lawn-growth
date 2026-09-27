@@ -18,7 +18,7 @@ def test_manifest():
     m = json.loads((PKG / "manifest.json").read_text(encoding="utf-8"))
     assert m["domain"] == "lawn_growth"
     assert m["name"] == "Lawn Growth"
-    assert m["version"] == "0.1.0-beta.1"
+    assert m["version"] == "0.1.0-beta.2"
     assert m["iot_class"] == "calculated"
     assert m["config_flow"] is True
     assert m["single_config_entry"] is True

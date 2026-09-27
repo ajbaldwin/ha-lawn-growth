@@ -4,7 +4,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.selector import (
     EntitySelector, EntitySelectorConfig, NumberSelector, NumberSelectorConfig,
     NumberSelectorMode, SelectSelector, SelectSelectorConfig, SelectSelectorMode,
@@ -41,10 +41,22 @@ def _notify_choices(hass, current: str | None) -> list:
     return sorted(choices)
 
 
-def _lawn_schema(hass, values: dict) -> vol.Schema:
+def _default_weather(hass) -> str | None:
+    """weather.home or weather.forecast_home if either exists; else the only weather
+    entity if there's exactly one; else None (no default)."""
+    for entity_id in ("weather.home", "weather.forecast_home"):
+        if hass.states.get(entity_id) is not None:
+            return entity_id
+    weather_entities = hass.states.async_entity_ids("weather")
+    if len(weather_entities) == 1:
+        return weather_entities[0]
+    return None
+
+
+def _lawn_schema(hass, values: dict, *, weather_default=vol.UNDEFINED) -> vol.Schema:
     notify = _notify_choices(hass, values.get(c.CONF_NOTIFY))
     return vol.Schema({
-        vol.Required(c.CONF_WEATHER, default=values.get(c.CONF_WEATHER, vol.UNDEFINED)):
+        vol.Required(c.CONF_WEATHER, default=values.get(c.CONF_WEATHER, weather_default)):
             EntitySelector(EntitySelectorConfig(domain="weather")),
         vol.Optional(c.CONF_SEASON, description=_suggest(values.get(c.CONF_SEASON))):
             EntitySelector(EntitySelectorConfig(domain=["input_boolean", "switch",
@@ -140,6 +152,38 @@ def _unique_key(name: str, existing: set) -> str:
     return key
 
 
+def _first_matching(entity_ids: list, keywords: tuple) -> str | None:
+    """First entity_id containing a keyword, trying keywords in priority order."""
+    for keyword in keywords:
+        for entity_id in entity_ids:
+            if keyword in entity_id:
+                return entity_id
+    return None
+
+
+def _mower_suggestions(hass) -> dict:
+    """When exactly one lawn_mower entity exists, suggest it as the activity entity
+    (with the usual working states) plus, from sensors on the same device, a blade-
+    height and a location sensor. Empty when there's none or more than one."""
+    mowers = hass.states.async_entity_ids("lawn_mower")
+    if len(mowers) != 1:
+        return {}
+    activity = mowers[0]
+    suggestions = {c.MOWER_ACTIVITY: activity, c.MOWER_WORKING: ["mowing", "paused"]}
+    registry = er.async_get(hass)
+    entry = registry.async_get(activity)
+    if entry is not None and entry.device_id is not None:
+        sensors = [e.entity_id for e in er.async_entries_for_device(registry, entry.device_id)
+                   if e.domain == "sensor"]
+        blade = _first_matching(sensors, ("blade",))
+        location = _first_matching(sensors, ("work_area", "area", "zone", "location"))
+        if blade:
+            suggestions[c.MOWER_BLADE] = blade
+        if location:
+            suggestions[c.MOWER_LOCATION] = location
+    return suggestions
+
+
 class _AreaSteps:
     """area_basics -> area_details, shared by the config flow and the options flow."""
     _area_name: str = ""
@@ -212,7 +256,11 @@ class LawnGrowthConfigFlow(_AreaSteps, config_entries.ConfigFlow, domain=c.DOMAI
         if user_input is not None:
             self._lawn = _clean(user_input)
             return await self.async_step_area_basics()
-        return self.async_show_form(step_id="user", data_schema=_lawn_schema(self.hass, {}))
+        weather_default = _default_weather(self.hass)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_lawn_schema(self.hass, {},
+                                     weather_default=weather_default or vol.UNDEFINED))
 
     async def _async_area_done(self, area: dict):
         return self.async_create_entry(title="Lawn Growth", data={},
@@ -309,7 +357,9 @@ class LawnGrowthOptionsFlow(_AreaSteps, config_entries.OptionsFlowWithReload):
                     c.MOWER_MIN_AREA: int(user_input[c.MOWER_MIN_AREA]),
                 }})
             current = {**current, **user_input}
-        working = sorted(set(current.get(c.MOWER_WORKING, [])) | {"mowing"})
+        elif not current:
+            current = _mower_suggestions(self.hass)
+        working = sorted(set(current.get(c.MOWER_WORKING, [])) | {"mowing", "paused"})
         schema = vol.Schema({
             vol.Optional(c.MOWER_ACTIVITY, description=_suggest(current.get(c.MOWER_ACTIVITY))):
                 EntitySelector(EntitySelectorConfig(domain=["sensor", "lawn_mower", "select"])),

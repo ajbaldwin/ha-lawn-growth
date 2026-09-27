@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.lawn_growth import const as c
@@ -59,6 +59,33 @@ async def test_full_setup_creates_entry(hass):
     a = opts[c.CONF_AREAS][0]
     assert (a[c.AREA_KEY], a[c.AREA_NAME], a[c.AREA_CURVE]) == ("front_side", "Front & Side", "cool")
     assert (a[c.AREA_CUT_MIN], a[c.AREA_CUT_MAX], a[c.AREA_OVERSEED_TARGET]) == (3.0, 3.9, 2.5)
+
+
+async def test_weather_default_prefers_weather_home(hass):
+    hass.states.async_set("weather.home", "sunny")
+    hass.states.async_set("weather.other", "sunny")
+    r = await hass.config_entries.flow.async_init(c.DOMAIN, context={"source": "user"})
+    assert _defaults(r)[c.CONF_WEATHER] == "weather.home"
+
+
+async def test_weather_default_falls_back_to_forecast_home(hass):
+    hass.states.async_set("weather.forecast_home", "sunny")
+    hass.states.async_set("weather.other", "sunny")
+    r = await hass.config_entries.flow.async_init(c.DOMAIN, context={"source": "user"})
+    assert _defaults(r)[c.CONF_WEATHER] == "weather.forecast_home"
+
+
+async def test_weather_default_falls_back_to_only_entity(hass):
+    hass.states.async_set("weather.mycity", "sunny")
+    r = await hass.config_entries.flow.async_init(c.DOMAIN, context={"source": "user"})
+    assert _defaults(r)[c.CONF_WEATHER] == "weather.mycity"
+
+
+async def test_weather_default_none_when_ambiguous(hass):
+    hass.states.async_set("weather.a", "sunny")
+    hass.states.async_set("weather.b", "sunny")
+    r = await hass.config_entries.flow.async_init(c.DOMAIN, context={"source": "user"})
+    assert c.CONF_WEATHER not in _defaults(r)
 
 
 async def test_invalid_ranges_show_errors(hass):
@@ -190,6 +217,64 @@ async def test_mower_setup_and_location_mapping(hass):
     r = await hass.config_entries.options.async_configure(
         r["flow_id"], {**DETAILS, c.AREA_LOCATIONS: ["Backyard"]})
     assert r["errors"] == {c.AREA_LOCATIONS: "location_in_use"}
+
+
+def _register_mower_with_sensors(hass, *, device_key="luba") -> str:
+    """A lawn_mower entity plus blade/work-area sensors on the same device.
+    Returns the mower's entity_id."""
+    entry = MockConfigEntry(domain="mammotion")
+    entry.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={("mammotion", device_key)})
+    reg = er.async_get(hass)
+    mower = reg.async_get_or_create("lawn_mower", "mammotion", f"{device_key}_mower",
+                                    config_entry=entry, device_id=device.id,
+                                    suggested_object_id=device_key)
+    reg.async_get_or_create("sensor", "mammotion", f"{device_key}_blade",
+                            config_entry=entry, device_id=device.id,
+                            suggested_object_id=f"{device_key}_blade_height")
+    reg.async_get_or_create("sensor", "mammotion", f"{device_key}_work_area",
+                            config_entry=entry, device_id=device.id,
+                            suggested_object_id=f"{device_key}_work_area")
+    hass.states.async_set(mower.entity_id, "mowing")
+    return mower.entity_id
+
+
+async def test_mower_prefill_suggests_from_single_lawn_mower(hass):
+    entry = _entry(hass)
+    mower_id = _register_mower_with_sensors(hass)
+    r = await _menu(hass, entry, "mower")
+    d = _defaults(r)
+    assert d[c.MOWER_ACTIVITY] == mower_id
+    assert d[c.MOWER_WORKING] == ["mowing", "paused"]
+    assert d[c.MOWER_BLADE] == "sensor.luba_blade_height"
+    assert d[c.MOWER_LOCATION] == "sensor.luba_work_area"
+    assert {"mowing", "paused"} <= set(_options(r, c.MOWER_WORKING))
+
+
+async def test_mower_prefill_nothing_with_two_lawn_mowers(hass):
+    entry = _entry(hass)
+    _register_mower_with_sensors(hass, device_key="luba1")
+    _register_mower_with_sensors(hass, device_key="luba2")
+    r = await _menu(hass, entry, "mower")
+    d = _defaults(r)
+    assert d.get(c.MOWER_ACTIVITY) is None
+    assert d.get(c.MOWER_BLADE) is None and d.get(c.MOWER_LOCATION) is None
+    assert d[c.MOWER_WORKING] == []
+    assert {"mowing", "paused"} <= set(_options(r, c.MOWER_WORKING))
+
+
+async def test_mower_prefill_skipped_when_already_configured(hass):
+    entry = _entry(hass, **{c.CONF_MOWER: {
+        c.MOWER_ACTIVITY: "sensor.saved_act", c.MOWER_WORKING: ["mowing"],
+        c.MOWER_BLADE: "sensor.saved_blade", c.MOWER_LOCATION: "sensor.saved_loc",
+        c.MOWER_GRACE: 15, c.MOWER_MIN_AREA: 10}})
+    _register_mower_with_sensors(hass)
+    r = await _menu(hass, entry, "mower")
+    d = _defaults(r)
+    assert d[c.MOWER_ACTIVITY] == "sensor.saved_act"
+    assert d[c.MOWER_BLADE] == "sensor.saved_blade"
+    assert d[c.MOWER_LOCATION] == "sensor.saved_loc"
 
 
 async def test_mower_removed_when_activity_cleared(hass):

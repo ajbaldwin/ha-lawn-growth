@@ -85,10 +85,23 @@ def test_establishment_blocks_mowing_and_reports_first_mow_target():
     assert r.recommended_cut_in == 3.45
 
 
+def test_establishment_reports_overseed_status_establishing():
+    # "inactive" would read as if nothing were happening while seedlings grow in.
+    r, _ = run(AreaState(seeding_date=date(2026, 8, 1), accumulated_mm=10.0))
+    assert r.overseed_status == "establishing"
+    assert r.overseed_active is False
+
+
 def test_seedlings_ready_override_gives_first_mow_ready():
     r, _ = run(AreaState(seeding_date=date(2026, 8, 1), seedlings_ready=True))
     assert r.mode == "first_mow_ready"
     assert r.mow_due is True and r.days_until_due == 0 and r.mowing_allowed is True
+
+
+def test_first_mow_ready_reports_overseed_status():
+    r, _ = run(AreaState(seeding_date=date(2026, 8, 1), seedlings_ready=True))
+    assert r.overseed_status == "first mow ready"
+    assert r.overseed_active is False
 
 
 def test_ready_from_seedling_estimate():

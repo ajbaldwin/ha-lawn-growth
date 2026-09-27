@@ -24,6 +24,9 @@
       "log_fertilizer": {"default": "mdi:shaker-outline"},
       "log_pgr": {"default": "mdi:flask-outline"},
       "evaluate_now": {"default": "mdi:refresh"}
+    },
+    "date": {
+      "seeding_date": {"default": "mdi:seed"}
     }
   },
   "services": {

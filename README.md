@@ -53,7 +53,8 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Last cut height | the height recorded with the most recent mow |
 | Mode | normal, heat hold, dormant, out of season, establishing, first mow ready, overseed prep |
 | Mow due / Mowing allowed | binary sensors for automations |
-| Growth today, Accumulated growth, Growth potential, Overseed status | details |
+| Growth today, Accumulated growth, Growth potential, Overseed status | details — Overseed status reads "establishing" then "first mow ready" while a seeding grows in |
+| Seeding date | set it to log or correct a seeding; empty when none is in progress |
 | Soil moisture used, Seedling height estimate | diagnostics |
 
 Buttons per area: **Log mow**, **Log seeding**, **Seedlings ready**, **Log fertilizer**, **Log PGR**. Lawn-wide: **Evaluate now**.

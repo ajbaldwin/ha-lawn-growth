@@ -175,6 +175,9 @@
       "log_fertilizer": {"name": "Log fertilizer"},
       "log_pgr": {"name": "Log PGR"},
       "evaluate_now": {"name": "Evaluate now"}
+    },
+    "date": {
+      "seeding_date": {"name": "Seeding date"}
     }
   },
   "services": {

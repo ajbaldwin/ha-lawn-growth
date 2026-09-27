@@ -19,12 +19,12 @@
       },
       "area_basics": {
         "title": "Mowing area",
-        "description": "A mowing area is a stretch of lawn you mow together. Most lawns need one.",
+        "description": "A mowing area is a stretch of lawn you mow together, for example 'Front & Side' and 'Back'. Set up one now; add more later under Configure → Add a mowing area. Each mowing area becomes its own device with its own advice.",
         "data": {"name": "Name", "grass": "Grass type"}
       },
       "area_details": {
         "title": "{name}",
-        "description": "Defaults come from the grass type; change anything.",
+        "description": "Defaults come from the grass type; change anything. After this step, Home Assistant lists the new devices. Assigning them to a Home Assistant area is optional and doesn't affect mowing advice.",
         "data": {
           "curve": "Growth curve",
           "cut_min_in": "Lowest cut height",
@@ -33,8 +33,8 @@
           "moisture_sensors": "Soil moisture sensors",
           "wilting_moisture": "Growth stops at or below",
           "comfortable_moisture": "Full growth at or above",
-          "mow_source_entity": "Mow signal (optional)",
-          "mow_source_mode": "Mow signal type",
+          "mow_source_entity": "Mow counter (mowers without an integration)",
+          "mow_source_mode": "Mow counter type",
           "mower_locations": "Mower locations in this area",
           "max_growth_rate_mm": "Maximum growth per day (mm)"
         },
@@ -42,8 +42,8 @@
           "moisture_sensors": "Averaged. GeoDrops sensors are quality-checked automatically.",
           "wilting_moisture": "Moisture reading where growth stops (GeoDrops index default 40). For a volumetric % sensor, use its dry reading.",
           "comfortable_moisture": "Moisture reading with no water stress (GeoDrops index default 67). For a volumetric % sensor, use its field-capacity reading.",
-          "mow_source_entity": "For mowers without a mower integration, e.g. a counter that increases after each mow.",
-          "mower_locations": "Values of the mower's location sensor that belong to this area."
+          "mow_source_entity": "Optional. For mowers Home Assistant can't see: an entity that changes after each mow, such as a counter that goes up by one. Leave empty if you'll set up a robot mower under Configure → Mower settings.",
+          "mower_locations": "Pick the mower location names that are inside this mowing area. Type a name if it isn't listed."
         }
       }
     },
@@ -67,12 +67,12 @@
           "edit_area": "Edit a mowing area",
           "remove_area": "Remove a mowing area",
           "settings": "Lawn settings",
-          "mower": "Mower"
+          "mower": "Mower settings"
         }
       },
       "area_basics": {
         "title": "Mowing area",
-        "description": "A mowing area is a stretch of lawn you mow together.",
+        "description": "A mowing area is a stretch of lawn you mow together, for example 'Front & Side' and 'Back'. Each mowing area becomes its own device with its own advice.",
         "data": {"name": "Name", "grass": "Grass type"}
       },
       "area_details": {
@@ -86,8 +86,8 @@
           "moisture_sensors": "Soil moisture sensors",
           "wilting_moisture": "Growth stops at or below",
           "comfortable_moisture": "Full growth at or above",
-          "mow_source_entity": "Mow signal (optional)",
-          "mow_source_mode": "Mow signal type",
+          "mow_source_entity": "Mow counter (mowers without an integration)",
+          "mow_source_mode": "Mow counter type",
           "mower_locations": "Mower locations in this area",
           "max_growth_rate_mm": "Maximum growth per day (mm)"
         },
@@ -95,8 +95,8 @@
           "moisture_sensors": "Averaged. GeoDrops sensors are quality-checked automatically.",
           "wilting_moisture": "Moisture reading where growth stops (GeoDrops index default 40). For a volumetric % sensor, use its dry reading.",
           "comfortable_moisture": "Moisture reading with no water stress (GeoDrops index default 67). For a volumetric % sensor, use its field-capacity reading.",
-          "mow_source_entity": "For mowers without a mower integration, e.g. a counter that increases after each mow.",
-          "mower_locations": "Values of the mower's location sensor that belong to this area."
+          "mow_source_entity": "Optional. For mowers Home Assistant can't see: an entity that changes after each mow, such as a counter that goes up by one. Leave empty if you'll set up a robot mower under Configure → Mower settings.",
+          "mower_locations": "Pick the mower location names that are inside this mowing area. Type a name if it isn't listed."
         }
       },
       "edit_area": {"title": "Edit a mowing area", "data": {"area": "Mowing area"}},
@@ -111,7 +111,7 @@
         }
       },
       "mower": {
-        "title": "Mower",
+        "title": "Mower settings",
         "description": "Optional. Lets Lawn Growth log mows (and the blade height) itself, however the mower was started. Clear the activity entity to turn this off.",
         "data": {
           "activity_entity": "Mower activity",
@@ -120,6 +120,12 @@
           "location_entity": "Mower location",
           "grace_minutes": "Session ends after (minutes idle)",
           "min_area_minutes": "Minimum time in an area to count (minutes)"
+        },
+        "data_description": {
+          "activity_entity": "The mower's state or activity entity.",
+          "working_states": "The states that mean the mower is cutting. Include paused states so a pause doesn't split a run.",
+          "blade_entity": "A sensor reporting the cutting height the mower is set to.",
+          "location_entity": "A sensor that names where the mower is working right now, such as 'Backyard' or 'Front Yard' (on a Mammotion/Luba it's the work area sensor). After saving, open Configure → Edit a mowing area and pick which of these names belong to each area. Names not assigned to any area, like 'path' or 'Not working', are ignored."
         }
       }
     },

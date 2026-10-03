@@ -21,7 +21,7 @@ from .store import LawnStore
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON,
-                             Platform.DATE]
+                             Platform.DATE, Platform.NUMBER]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 type LawnGrowthConfigEntry = ConfigEntry[LawnGrowthCoordinator]

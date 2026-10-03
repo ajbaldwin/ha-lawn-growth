@@ -178,6 +178,9 @@
       "last_mow": {"name": "Last mow"},
       "last_fertilizer": {"name": "Last fertilizer"},
       "last_pgr": {"name": "Last PGR"}
+    },
+    "number": {
+      "log_mow_height": {"name": "Log mow height"}
     }
   },
   "services": {
@@ -187,7 +190,7 @@
       "fields": {
         "device_id": {"name": "Mowing area", "description": "The mowing areas to log this mow for."},
         "date": {"name": "Date", "description": "Day of the mow. Defaults to today."},
-        "height_in": {"name": "Cut height", "description": "Height the lawn was cut to. Defaults to the last cut height."}
+        "height_in": {"name": "Cut height", "description": "Height the lawn was cut to. Defaults to the area's Log mow height."}
       }
     },
     "correct_last_mow": {

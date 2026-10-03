@@ -85,6 +85,7 @@ class AreaState:
     green_up_start: Optional[date] = None
     was_in_season: Optional[bool] = None
     mow_source_last: Optional[str] = None
+    log_mow_height_in: Optional[float] = None    # Log mow height; None = last cut
 
     @property
     def last_cut_in(self) -> Optional[float]:
@@ -115,6 +116,7 @@ class AreaState:
             "green_up_start": _s(self.green_up_start),
             "was_in_season": self.was_in_season,
             "mow_source_last": self.mow_source_last,
+            "log_mow_height_in": self.log_mow_height_in,
         }
 
     @classmethod
@@ -140,4 +142,5 @@ class AreaState:
             green_up_start=_d(d.get("green_up_start")),
             was_in_season=d.get("was_in_season"),
             mow_source_last=d.get("mow_source_last"),
+            log_mow_height_in=d.get("log_mow_height_in"),
         )

@@ -30,12 +30,12 @@ def seedling_height_in(history, seeding_date: date, germination_days: int) -> fl
     return sum(h.growth_mm for h in history if h.date >= start) / 25.4
 
 
-def is_ready(state: AreaState, *, today: date, seedling_in: float,
-             first_mow_target_in: float, tun) -> bool:
+def looks_ready(state: AreaState, *, today: date, seedling_in: float,
+                first_mow_target_in: float, tun) -> bool:
+    """The model's estimate that the seedlings could take a first mow. Advisory
+    only: mowing stays held until the operator presses Seedlings ready."""
     if state.seeding_date is None:
         return False
-    if state.seedlings_ready:
-        return True
     if (today - state.seeding_date).days < tun.min_establishment_days:
         return False
     return seedling_in >= tun.first_mow_ratio * first_mow_target_in

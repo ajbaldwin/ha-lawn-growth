@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.5 — Seedlings ready decides
+- **Mowing seedlings no longer ends establishment early.** Before, logging any mow after the seeding date cleared the seeding date. Now a mow only ends establishment after you press Seedlings ready. Mows before that still update Last mow and the cut height, but the area stays in establishment, so Mowing allowed stays off. To end establishment yourself, press Seedlings ready; the next mow then returns the area to normal.
+- **Only Seedlings ready allows mowing on new seed.** Before, the model's seedling-height estimate could switch an area to first mow ready on its own, which turned Mowing allowed on (and could start a robot mower). Now the estimate only notifies you ("seedlings look ready… press Seedlings ready") and Overseed status reads "seedlings look ready". Mowing allowed stays off until you press the button.
+- **Choose the height when you log a mow.** Each mowing area has a new **Log mow height** number. Log mow, the Last mow date picker and a mow counter record that height. Until you set it, it follows the last cut height, as before.
+
 ## 0.1.0-beta.4 — Fewer, safer buttons
 - **Removed the Log seeding, Log fertilizer and Log PGR buttons.** The Seeding date, Last fertilizer and Last PGR date entities from beta.3 do the same job with the date in view. Log seeding was also easy to tap by mistake: it reset an area's seeding date to today, restarting establishment. Upgrading removes the old button entities; if a dashboard or automation used them, switch it to the date entity or the matching service (`lawn_growth.log_seeding`, `lawn_growth.log_event`), which are unchanged.
 - **Log mow and Seedlings ready stay.** Log mow is still the one-tap way to record today's mow.

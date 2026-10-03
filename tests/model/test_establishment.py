@@ -33,23 +33,17 @@ def test_seedling_height_counts_growth_from_germination():
 
 def test_not_ready_before_floor_even_if_tall():
     s = AreaState(seeding_date=date(2026, 9, 20))
-    assert establishment.is_ready(s, today=date(2026, 10, 10), seedling_in=9.0,
-                                  first_mow_target_in=3.0, tun=T) is False
+    assert establishment.looks_ready(s, today=date(2026, 10, 10), seedling_in=9.0,
+                                     first_mow_target_in=3.0, tun=T) is False
 
 
 def test_ready_after_floor_when_tall_enough():
     s = AreaState(seeding_date=date(2026, 9, 20))
     kw = dict(today=date(2026, 10, 11), first_mow_target_in=3.0, tun=T)
-    assert establishment.is_ready(s, seedling_in=4.49, **kw) is False
-    assert establishment.is_ready(s, seedling_in=4.5, **kw) is True
-
-
-def test_override_ready_any_time():
-    s = AreaState(seeding_date=date(2026, 9, 20), seedlings_ready=True)
-    assert establishment.is_ready(s, today=date(2026, 9, 25), seedling_in=0.0,
-                                  first_mow_target_in=3.0, tun=T) is True
+    assert establishment.looks_ready(s, seedling_in=4.49, **kw) is False
+    assert establishment.looks_ready(s, seedling_in=4.5, **kw) is True
 
 
 def test_no_seeding_never_ready():
-    assert establishment.is_ready(AreaState(), today=date(2026, 9, 25), seedling_in=9.0,
-                                  first_mow_target_in=3.0, tun=T) is False
+    assert establishment.looks_ready(AreaState(), today=date(2026, 9, 25), seedling_in=9.0,
+                                     first_mow_target_in=3.0, tun=T) is False

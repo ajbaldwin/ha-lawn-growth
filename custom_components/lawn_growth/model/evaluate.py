@@ -62,6 +62,7 @@ class AreaResult:
     overseed_arrival_date: Optional[str]
     overseed_feasible: bool
     overseed_earliest_date: Optional[str]
+    seedlings_look_ready: bool = False
 
 
 def _accrue(s, cfg, tun, inp, mean_f, gp, potential_mm, wf, mf) -> None:
@@ -125,15 +126,17 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
     target = s.target_in
 
     # Establishment / first mow
+    # Only Seedlings ready ends the hold; the model's estimate just says so.
     seedling_in = first_target = None
-    ready = False
+    look_ready = False
     if s.seeding_date is not None:
         seedling_in = establishment.seedling_height_in(s.history, s.seeding_date,
                                                        tun.germination_days)
         first_target = target
-        ready = establishment.is_ready(s, today=today, seedling_in=seedling_in,
-                                       first_mow_target_in=first_target, tun=tun)
+        look_ready = establishment.looks_ready(s, today=today, seedling_in=seedling_in,
+                                               first_mow_target_in=first_target, tun=tun)
     seeded = s.seeding_date is not None
+    ready = s.seedlings_ready
     mode = modes.resolve_mode(inp.in_season, seeded and not ready, seeded and ready,
                               dormant, hh)
 
@@ -197,7 +200,7 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
     overseed_status = op.status
     if not op.active and s.seeding_date is not None:
         if mode == "establishment":
-            overseed_status = "establishing"
+            overseed_status = "seedlings look ready" if look_ready else "establishing"
         elif mode == "first_mow_ready":
             overseed_status = "first mow ready"
 
@@ -220,5 +223,6 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
         overseed_feasible=op.feasible,
         overseed_earliest_date=(op.earliest_seed_date.isoformat()
                                 if op.earliest_seed_date else None),
+        seedlings_look_ready=look_ready,
     )
     return result, s

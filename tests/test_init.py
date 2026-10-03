@@ -240,20 +240,29 @@ async def test_flat_projection_warned_once(hass, freezer, caplog):
     assert [r.levelno for r in flat] == [logging.WARNING]
 
 
-async def test_mow_ending_establishment_early_is_logged(hass, freezer, caplog):
-    """A mow after seeding but before ready ends establishment (logged at info)."""
+async def test_establishment_mow_keeps_seeding_until_ready(hass, freezer, caplog):
+    """A mow after seeding but before ready is an establishment mow (logged at
+    info); after Seedlings ready, the next mow ends establishment."""
     caplog.set_level(logging.INFO, logger="custom_components.lawn_growth")
     freezer.move_to(NOW)
     register_weather(hass, daily_rows=daily(TODAY, FLAT_68))
     entry = make_entry(hass)
     await setup(hass, entry)
     c = entry.runtime_data
-    await c.async_log_seeding("lawn", on=TODAY.replace(day=20))
+    seeded = TODAY.replace(day=20)
+    await c.async_log_seeding("lawn", on=seeded)
     assert c.data["lawn"].mode == "establishment"
     await c.async_log_mow("lawn", height_in=3.5)
-    assert c.data["lawn"].mode == "normal"
-    assert any("ends establishment" in r.getMessage() and r.levelno == logging.INFO
+    assert c.data["lawn"].mode == "establishment"
+    assert c.store.areas["lawn"].seeding_date == seeded
+    assert c.store.areas["lawn"].last_mow == TODAY
+    assert any("establishment mow" in r.getMessage() and r.levelno == logging.INFO
                for r in caplog.records)
+    await c.async_seedlings_ready("lawn")
+    assert c.data["lawn"].mode == "first_mow_ready"
+    await c.async_log_mow("lawn", height_in=3.5)
+    assert c.data["lawn"].mode == "normal"
+    assert c.store.areas["lawn"].seeding_date is None
 
 
 COUNTER = "input_number.lawn_mow_count"

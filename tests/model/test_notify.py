@@ -44,11 +44,19 @@ def test_no_due_push_during_overseed_prep_or_when_not_due():
     assert _decide(_result(mow_due=False))[0] == []
 
 
-def test_first_mow_ready_once():
-    r = _result(mode="first_mow_ready", first_mow_target_in=3.0)
+def test_seedlings_look_ready_once():
+    r = _result(mode="establishment", mow_due=False, mowing_allowed=False,
+                seedlings_look_ready=True, first_mow_target_in=3.0)
     msgs, s = _decide(r)
-    assert [m.message for m in msgs] == ["Back: first mow ready — cut at 3.00″."]
+    assert [m.message for m in msgs] == [
+        "Back: seedlings look ready for a first mow at 3.00″. "
+        "Press Seedlings ready to allow mowing."]
     assert _decide(r, s)[0] == []
+
+
+def test_no_ready_push_after_seedlings_ready_pressed():
+    r = _result(mode="first_mow_ready", first_mow_target_in=3.0)
+    assert _decide(r)[0] == []
 
 
 def test_no_overseed_push_during_establishment():

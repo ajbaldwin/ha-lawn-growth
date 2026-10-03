@@ -27,9 +27,11 @@ def decide(name: str, result, state, *, today: date, min_interval_days: int):
         out.append(Message(TITLE, text))
         s.due_notified = True
 
-    if result.mode == "first_mow_ready" and not s.ready_notified:
-        out.append(Message(TITLE, f"{name}: first mow ready — cut at "
-                                  f"{result.first_mow_target_in:.2f}″."))
+    if (result.mode == "establishment" and result.seedlings_look_ready
+            and not s.ready_notified):
+        out.append(Message(TITLE, f"{name}: seedlings look ready for a first mow at "
+                                  f"{result.first_mow_target_in:.2f}″. Press Seedlings "
+                                  f"ready to allow mowing."))
         s.ready_notified = True
 
     if result.overseed_active:

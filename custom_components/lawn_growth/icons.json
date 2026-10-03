@@ -27,6 +27,9 @@
       "last_mow": {"default": "mdi:mower"},
       "last_fertilizer": {"default": "mdi:shaker-outline"},
       "last_pgr": {"default": "mdi:flask-outline"}
+    },
+    "number": {
+      "log_mow_height": {"default": "mdi:arrow-expand-vertical"}
     }
   },
   "services": {

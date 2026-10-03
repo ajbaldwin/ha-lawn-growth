@@ -42,6 +42,14 @@ def test_mow_after_seeding_ends_establishment():
     assert (out.seeding_date, out.seedlings_ready, out.ready_notified) == (None, False, False)
 
 
+def test_establishment_mow_keeps_seeding():
+    """A mow before the stand is ready is logged but doesn't end establishment."""
+    s = AreaState(seeding_date=date(2026, 9, 7), accumulated_mm=5.0)
+    out = mow.apply_mow(s, _rec(date(2026, 10, 3), 3.5))
+    assert out.seeding_date == date(2026, 9, 7) and out.seedlings_ready is False
+    assert (out.last_mow, out.last_cut_in, out.accumulated_mm) == (date(2026, 10, 3), 3.5, 0.0)
+
+
 def test_mow_on_seeding_date_keeps_establishment():
     s = AreaState(seeding_date=date(2026, 9, 20))
     out = mow.apply_mow(s, _rec(date(2026, 9, 20), 3.0))

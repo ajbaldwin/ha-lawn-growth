@@ -120,8 +120,20 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         await self.async_run()
 
     def default_height(self, key: str) -> float:
-        last = self.store.areas[key].last_cut_in
-        return last if last is not None else self.areas[key].cut_max_in
+        """Height for a mow logged without one: the Log mow height, else the last
+        cut, else the top of the cut range."""
+        s = self.store.areas[key]
+        for h in (s.log_mow_height_in, s.last_cut_in):
+            if h is not None:
+                return h
+        return self.areas[key].cut_max_in
+
+    async def async_set_log_mow_height(self, key: str, height_in: float) -> None:
+        def fn(s):
+            c = s.copy()
+            c.log_mow_height_in = float(height_in)
+            return c
+        await self._async_mutate(key, fn)
 
     async def async_log_mow(self, key: str, *, on: date | None = None,
                             height_in: float | None = None, source: str = "manual") -> None:
@@ -130,11 +142,9 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                            source)
         def fn(s):
             new = mow.apply_mow(s, record)
-            last = (self.data or {}).get(key)
-            if (s.seeding_date is not None and new.seeding_date is None
-                    and last is not None and last.mode == "establishment"):
-                _LOGGER.info("%s: mow on %s ends establishment (seeded %s) before the "
-                             "seedlings were ready; treating the stand as ready",
+            if s.seeding_date is not None and new.seeding_date is not None                     and record.date > s.seeding_date:
+                _LOGGER.info("%s: mow on %s logged as an establishment mow (seeded %s); "
+                             "press Seedlings ready to end establishment",
                              self.areas[key].name, record.date, s.seeding_date)
             return new
         await self._async_mutate(key, fn)

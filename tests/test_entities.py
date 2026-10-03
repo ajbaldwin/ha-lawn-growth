@@ -30,7 +30,8 @@ async def test_entity_ids_and_names(hass, freezer):
                    | {f"binary_sensor.{p}_{k}" for k in BINARY_KEYS}
                    | {f"button.{p}_log_mow", f"button.{p}_seedlings_ready"}
                    | {"button.lawn_growth_evaluate_now"}
-                   | {f"date.{p}_{k}" for k in DATE_KEYS})
+                   | {f"date.{p}_{k}" for k in DATE_KEYS}
+                   | {f"number.{p}_log_mow_height"})
     due = hass.states.get(f"sensor.{p}_days_until_due")
     assert due.state == "5" and due.attributes["days"] == 5
     assert due.attributes["friendly_name"] == "Front & Side Days until mow due"
@@ -63,6 +64,25 @@ async def test_buttons(hass, freezer):
     state = entry.runtime_data.store.areas["front_side"]
     assert state.last_mow == TODAY and state.seeding_date == TODAY
     await press("button.lawn_growth_evaluate_now")
+
+
+async def test_log_mow_height(hass, freezer):
+    """Log mow height sets the height Log mow and the Last mow picker record."""
+    entry = await _setup(hass, freezer)
+    p = "lawn_growth_front_side"
+    num = f"number.{p}_log_mow_height"
+    assert hass.states.get(num).state == "3.9"               # no mow yet: cut range max
+    await hass.services.async_call("number", "set_value",
+                                   {"entity_id": num, "value": 3.5}, blocking=True)
+    assert hass.states.get(num).state == "3.5"
+    await hass.services.async_call("button", "press",
+                                   {"entity_id": f"button.{p}_log_mow"}, blocking=True)
+    assert hass.states.get(f"sensor.{p}_last_cut_height").state == "3.5"
+    await hass.services.async_call("date", "set_value", {"entity_id": f"date.{p}_last_mow",
+                                   "date": (TODAY - timedelta(days=1)).isoformat()},
+                                   blocking=True)
+    records = entry.runtime_data.store.areas["front_side"].mow_records
+    assert [r.height_in for r in records] == [3.5, 3.5]
 
 
 async def test_upgrade_removes_retired_buttons(hass, freezer):

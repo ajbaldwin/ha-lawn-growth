@@ -53,13 +53,13 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Last cut height | the height recorded with the most recent mow |
 | Mode | normal, heat hold, dormant, out of season, establishing, first mow ready, overseed prep |
 | Mow due / Mowing allowed | binary sensors for automations |
-| Growth today, Accumulated growth, Growth potential, Overseed status | details — Overseed status reads "establishing" then "first mow ready" while a seeding grows in |
+| Growth today, Accumulated growth, Growth potential, Overseed status | details — Overseed status reads "establishing", "seedlings look ready", then "first mow ready" while a seeding grows in |
 | Seeding date | set it to log or correct a seeding — this one replaces the stored date; empty when none is in progress |
 | Last mow | set it to log a mow on that date (each set adds a mow, it doesn't correct one); a date older than the one already stored is kept as history only, so the entity keeps showing the newer date. Setting the date already shown does nothing |
 | Last fertilizer, Last PGR | set either to log an application on that date (each set adds one, it doesn't correct one); goes back to empty once the record ages past 35 days. Setting the date already shown does nothing |
 | Soil moisture used, Seedling height estimate | diagnostics |
 
-Buttons per area: **Log mow** (one tap for today, at the last cut height) and **Seedlings ready**. Lawn-wide: **Evaluate now**. Log seedings, fertilizer and PGR with their date entities.
+Buttons per area: **Log mow** (one tap for today, at the area's **Log mow height**) and **Seedlings ready**. **Log mow height** defaults to the last cut height; set it before logging a mow at a different height. The **Last mow** date picker uses it too. Lawn-wide: **Evaluate now**. Log seedings, fertilizer and PGR with their date entities.
 
 ## Services
 
@@ -72,4 +72,4 @@ All take a `device_id` field (one or more mowing-area devices) and accept an opt
 - A mow is due when accumulated growth reaches a third of the last cut height.
 - Heat hold: 95 °F+ always; 88 °F+ when the soil is also dry (warm-season grass: +10 °F).
 - Dormancy: 10 days in a row of very low growth.
-- Overseeding: steps the height down so the last safe pass lands a week before the seed date. After seeding, mowing is held (Mowing allowed off) until the estimated seedling height reaches 1.5× the first-mow height, at least 21 days after seeding, or until you press **Seedlings ready**.
+- Overseeding: steps the height down so the last safe pass lands a week before the seed date. After seeding, mowing is held (Mowing allowed off) until you press **Seedlings ready**. Once the estimated seedling height reaches 1.5× the first-mow height, at least 21 days after seeding, you get a notification and Overseed status reads "seedlings look ready", but mowing stays held until you press the button. Mows logged before then are kept as establishment mows; the first mow after Seedlings ready ends establishment.

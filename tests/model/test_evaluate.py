@@ -104,12 +104,17 @@ def test_first_mow_ready_reports_overseed_status():
     assert r.overseed_active is False
 
 
-def test_ready_from_seedling_estimate():
+def test_seedling_estimate_alone_keeps_mowing_held():
+    """Tall enough by the model's estimate, but only Seedlings ready allows mowing."""
     seed = date(2026, 7, 1)
     hist = [DayRecord(seed + timedelta(days=i), 68.0, 1.0, 6.5) for i in range(10, 39)]
     r, _ = run(AreaState(seeding_date=seed, history=hist))
-    assert r.mode == "first_mow_ready"
     assert r.seedling_height_in > 1.5 * 3.45
+    assert r.seedlings_look_ready is True
+    assert r.mode == "establishment" and r.mowing_allowed is False
+    assert r.overseed_status == "seedlings look ready"
+    r, _ = run(AreaState(seeding_date=seed, history=hist, seedlings_ready=True))
+    assert r.mode == "first_mow_ready" and r.mowing_allowed is True
 
 
 def test_heat_hold_uses_moisture_midpoint():

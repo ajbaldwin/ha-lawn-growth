@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Application calendar and startup resilience
+## 0.1.0-beta.7 — Application calendar and startup resilience
 - **Application windows for pre-emergent, winterizer and fall overseeding**, timed from soil temperature (or growing degree days and air temperatures without probes). New **Pre-emergent** (lawn-wide), **Winterizer** and **Overseed window** (per area) sensors read tentative, projected, open, done, skipped or missed, with the dates, trigger value and source as attributes.
 - **Notifications** when a window opens, plus pre-emergent heads-up, late, germination-expected and missed alerts and an overseed closing-soon alert. Once per window per season; areas crossing together share one message.
 - **Applications calendar** (`calendar.lawn_growth_applications`): upcoming windows and everything logged — seedings, fertilizer, PGR, winterizer and herbicides — kept for 400 days, separate from the 35-day records the growth model uses.

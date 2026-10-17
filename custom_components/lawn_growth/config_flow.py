@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.calendar import CalendarEntityFeature
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.selector import (
@@ -68,7 +69,31 @@ def _lawn_schema(hass, values: dict, *, weather_default=vol.UNDEFINED) -> vol.Sc
             TimeSelector(),
         vol.Optional(c.CONF_OUTDOOR_TEMP, description=_suggest(values.get(c.CONF_OUTDOOR_TEMP))):
             EntitySelector(EntitySelectorConfig(domain="sensor", device_class="temperature")),
+        vol.Optional(c.CONF_CALENDARS, description=_suggest(values.get(c.CONF_CALENDARS))):
+            EntitySelector(EntitySelectorConfig(
+                filter=[{"domain": "calendar",
+                         "supported_features": ["calendar.CalendarEntityFeature.CREATE_EVENT"]}],
+                multiple=True)),
     })
+
+
+def _writable_calendar(hass, entity_id: str) -> bool:
+    """A calendar entity that supports creating events. An entity whose integration
+    isn't loaded right now is judged from the entity registry."""
+    if not entity_id.startswith("calendar."):
+        return False
+    st = hass.states.get(entity_id)
+    features = st.attributes.get("supported_features") if st is not None else None
+    if features is None:
+        entry = er.async_get(hass).async_get(entity_id)
+        features = entry.supported_features if entry is not None else None
+    return features is not None and bool(int(features) & CalendarEntityFeature.CREATE_EVENT)
+
+
+def _lawn_errors(hass, user_input: dict) -> dict:
+    if any(not _writable_calendar(hass, e) for e in user_input.get(c.CONF_CALENDARS) or []):
+        return {c.CONF_CALENDARS: "calendar_not_writable"}
+    return {}
 
 
 def _clean(user_input: dict) -> dict:
@@ -304,14 +329,18 @@ class LawnGrowthConfigFlow(_AreaSteps, config_entries.ConfigFlow, domain=c.DOMAI
         self._lawn: dict = {}
 
     async def async_step_user(self, user_input=None):
+        errors: dict = {}
         if user_input is not None:
-            self._lawn = _clean(user_input)
-            return await self.async_step_area_basics()
+            errors = _lawn_errors(self.hass, user_input)
+            if not errors:
+                self._lawn = _clean(user_input)
+                return await self.async_step_area_basics()
         weather_default = _default_weather(self.hass)
         return self.async_show_form(
             step_id="user",
-            data_schema=_lawn_schema(self.hass, {},
-                                     weather_default=weather_default or vol.UNDEFINED))
+            data_schema=_lawn_schema(self.hass, user_input or {},
+                                     weather_default=weather_default or vol.UNDEFINED),
+            errors=errors)
 
     async def _async_area_done(self, area: dict):
         return self.async_create_entry(title="Lawn Growth", data={},
@@ -379,13 +408,18 @@ class LawnGrowthOptionsFlow(_AreaSteps, config_entries.OptionsFlowWithReload):
         return self.async_show_form(step_id="remove_area", data_schema=self._area_choice())
 
     async def async_step_settings(self, user_input=None):
+        errors: dict = {}
         if user_input is not None:
-            opts = {k: v for k, v in self.config_entry.options.items()
-                    if k not in (c.CONF_SEASON, c.CONF_NOTIFY, c.CONF_OUTDOOR_TEMP)}
-            opts.update(_clean(user_input))
-            return self.async_create_entry(title="", data=opts)
+            errors = _lawn_errors(self.hass, user_input)
+            if not errors:
+                opts = {k: v for k, v in self.config_entry.options.items()
+                        if k not in (c.CONF_SEASON, c.CONF_NOTIFY, c.CONF_OUTDOOR_TEMP,
+                                     c.CONF_CALENDARS)}
+                opts.update(_clean(user_input))
+                return self.async_create_entry(title="", data=opts)
+        values = {**self.config_entry.options, **(user_input or {})}
         return self.async_show_form(step_id="settings",
-                                    data_schema=_lawn_schema(self.hass, self.config_entry.options))
+                                    data_schema=_lawn_schema(self.hass, values), errors=errors)
 
     async def async_step_mower(self, user_input=None):
         current = self.config_entry.options.get(c.CONF_MOWER) or {}

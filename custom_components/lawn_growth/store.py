@@ -9,6 +9,7 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN, STORAGE_MINOR_VERSION, STORAGE_VERSION
 from .model import applications
 from .model.applications import Application
+from .model.calwriter import Ledger
 from .model.gdd import GddState
 from .model.management import ManagementEvent
 from .model.session import MowerSession
@@ -46,6 +47,7 @@ class LawnStore:
         self.applications: list[Application] = []   # 400-day application log
         self.windows: dict[str, Window] = {}   # windows.window_key -> Window
         self.pre_emergent_product: str | None = None  # None: follow the suggestion
+        self.calendar_ledgers: dict[str, Ledger] = {}  # target calendar -> what's written
 
     async def async_load(self, area_keys) -> None:
         raw = await self._store.async_load() or {}
@@ -58,6 +60,8 @@ class LawnStore:
         self.applications = [Application.from_dict(a) for a in raw.get("applications", [])]
         self.windows = {k: Window.from_dict(w) for k, w in (raw.get("windows") or {}).items()}
         self.pre_emergent_product = raw.get("pre_emergent_product")
+        self.calendar_ledgers = {k: Ledger.from_dict(v)
+                                 for k, v in (raw.get("calendar_ledgers") or {}).items()}
 
     async def async_save(self) -> None:
         await self._store.async_save({
@@ -68,6 +72,7 @@ class LawnStore:
             "applications": [a.to_dict() for a in self.applications],
             "windows": {k: w.to_dict() for k, w in self.windows.items()},
             "pre_emergent_product": self.pre_emergent_product,
+            "calendar_ledgers": {k: v.to_dict() for k, v in self.calendar_ledgers.items()},
         })
 
     async def async_remove(self) -> None:

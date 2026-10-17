@@ -1,6 +1,6 @@
 # Application calendar — spec (draft)
 
-Status: draft, 2026-10-17. P1 (§1) and P2 (§2.1–2.3, §2.5, §3–4 without post-emergent) are built; P3–P4 are not. See "P2 as built" below for the choices P2 made where the spec left room.
+Status: draft, 2026-10-17. P1 (§1), P2 (§2.1–2.3, §2.5, §3–4 without post-emergent) and P3 (§5) are built; P4 is not. See "P2 as built" and "P3 as built" below for the choices made where the spec left room.
 
 ## Goal
 
@@ -31,6 +31,7 @@ Advisory only, like the rest of Lawn Growth: it never applies anything. The one 
 | D13 | Winterizer rule in §2.2 approved. | 2026-10-17 |
 | D14 | The post-emergent product list ships with **mesotrione**, **triclopyr ester** and Other. | 2026-10-17 |
 | D15 | **Hold Mowing allowed after a post-emergent** spray: on by default. | 2026-10-17 |
+| D16 | The phone-calendar setting takes **several calendars** ("Copy events to calendars"), each with its own ledger — e.g. a Local Calendar next to a mowing log now, Google Calendar for the phone later. | 2026-10-17 |
 
 ## 1. Temperature signals
 
@@ -247,7 +248,7 @@ Today fert/PGR records are pruned after 35 days (`store.py` `EVENT_RETENTION_DAY
 
 Home Assistant can't publish a calendar as a subscription feed (checked against HA 2026.2: no core integration exports `.ics`), so Lawn Growth doesn't serve one. Instead it can write **firm events** into a calendar entity the user picks, with the core `calendar.create_event` service. With HA's Google Calendar integration those events reach the phone through Google (the Google Calendar app, or Apple Calendar with the Google account added); with CalDAV, through iCloud, Nextcloud and similar.
 
-**Setting:** new optional lawn-wide **Phone calendar** under Lawn settings — any calendar entity that supports creating events (selector filtered on `CalendarEntityFeature.CREATE_EVENT`). Empty = nothing written.
+**Setting:** new optional lawn-wide **Copy events to calendars** under Lawn settings — one or more calendar entities that support creating events (selector filtered on `CalendarEntityFeature.CREATE_EVENT`, D16). Empty = nothing written.
 
 **Firm events only.** Calendar entities can't be relied on to update events (Google supports create and delete, CalDAV only create), and `create_event` returns no event id. So Lawn Growth writes an event only once its date is final, and never needs to change it:
 
@@ -302,7 +303,7 @@ Lawn Growth is published for other people, so the phone calendar must work for i
 |---|---|---|
 | P1 ✅ | Soil source selection, GDD, Soil temperature and GDD sensors. No alerts. Ship **before Jan 1** so GDD counts from day one, or set the outdoor temperature sensor so it back-fills from statistics. | ~1 day |
 | P2 ✅ | Windows, status sensors, notifications, application log, calendar entity | ~1.5–2 days |
-| P3 | Phone calendar: the setting and its validation, the firm-event writer and its ledger, the repair issue, README/CHANGELOG (§5.1). | ~0.5–1 day |
+| P3 ✅ | Phone calendar: the setting and its validation, the firm-event writer and its ledger, the repair issue, README/CHANGELOG (§5.1). | ~0.5–1 day |
 | P4 | Post-emergent: windows, spray-day check, `Good spray day`, the Mowing allowed hold, `flag_weeds`. Starts by checking which forecast fields common weather integrations return. Needed by May (spring broadleaf). | ~1–1.5 days |
 
 ## P2 as built
@@ -321,6 +322,16 @@ Choices made where the spec left room (P3 and P4 build on these):
 - **Services.** `log_event` with no `device_id` logs for every area, for every kind. `skip_application` without `device_id` skips every area's window; logging afterwards still makes it done (there's no un-skip).
 - **Storage.** Store 1.2 (minor bump, so an older version still loads it). The migration seeds the application log from the fert/PGR events and current seeding dates. Seedings are logged too; re-setting a seeding date replaces its log entry.
 - Not built: the optional probes-back-online notification (§1.3).
+
+## P3 as built
+
+- **Setting** `write_calendars` (a list, D16), on the first setup step and under Lawn settings. Validation rejects anything that isn't a calendar entity with `CREATE_EVENT` (from its state, or the entity registry when its integration isn't loaded): `calendar_not_writable`.
+- **What's written:** `CalEvent.firm` events except mows and missed windows. On first adding a calendar, every such event on Lawn Growth's calendar is written (a backfill, up to the 400-day log).
+- **Ledger per calendar, by atom.** Each area's part of an event is an atom (`lawn_growth-{kind}-{season}-{area}-{event}`; a whole-lawn log is one atom per area). When a second area's same-day log merges into an already-written event, only the new area is written ("Fertilizer — Front"), with its own key. A calendar removed from the setting keeps its ledger, so adding it back writes nothing twice. Entries for events no longer on the calendar are pruned after 30 days.
+- **When it runs:** after every successful run (daily and after each log), once HA is running; its own lock keeps overlapping runs from writing twice. An unavailable calendar isn't called (an entity service call would skip it silently).
+- **Retries.** A failed write stays pending and is retried every run. It's dropped after 3 days only while other writes to the same calendar succeed; while every write fails (the calendar is down), nothing is dropped, so the backlog lands once it works again.
+- **Repair** `calendar_unavailable_<entity>` (translation `calendar_unavailable`), one per calendar: raised when the calendar doesn't exist, or writes have failed (or it was unavailable with writes due) on 3 consecutive days. Cleared by the next successful write, a run where it's reachable with nothing failing, or taking it out of the setting. The warning is logged when the issue is first raised.
+- Store: `calendar_ledgers` (additive; no version bump).
 
 ## Later
 

@@ -11,6 +11,7 @@ CONF_RUN_TIME = "run_time"
 CONF_MOWER = "mower"
 CONF_AREAS = "areas"
 CONF_OUTDOOR_TEMP = "outdoor_temp_entity"
+CONF_CALENDARS = "write_calendars"     # calendars firm events are copied to
 DEFAULT_RUN_TIME = "05:00:00"
 
 # entry.options[CONF_MOWER]

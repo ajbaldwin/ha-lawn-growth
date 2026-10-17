@@ -24,6 +24,7 @@ Betas (`X.Y.Z-beta.N`) are published as GitHub pre-releases. HACS offers them on
 - **Notify** (optional): where pushes go.
 - **Outdoor temperature sensor** (optional): a weather station's air temperature. Growing degree days then use observed highs and lows, back-filled from the sensor's history; without it they use the weather forecast. You can add or change it any time: the season is then recounted from that sensor's history.
 - **Daily run time** (default 05:00): when the day's growth is added.
+- **Copy events to calendars** (optional): calendars that get a copy of the firm application events, such as a Local Calendar or Google Calendar. See [Copying events to other calendars](#copying-events-to-other-calendars).
 
 Then add a **mowing area** — a stretch of lawn you mow together, for example "Front & Side" and "Back". Most lawns need one to start; add more later from the integration's **Configure → Add a mowing area**. Each mowing area becomes its own device with its own advice; assigning that device to a Home Assistant area afterwards is optional and doesn't affect the advice. Pick a **grass type**; it sets the growth curve and default heights, all editable:
 
@@ -92,6 +93,20 @@ Soil here is the 5-day Soil temperature. The pre-emergent follows the warmest ar
 - **Notifications** (to the Notify target, once per window per season): pre-emergent heads-up (47 °F and rising / 75 GDD — time to buy product), apply now, late warning (53 °F / 175 GDD), germination expected (suggests dithiopyr, which still controls very young crabgrass) and missed; winterizer open; overseed open and closing in about a week. Areas crossing together share one message. Alerts set from air temperatures say so.
 - **Products and seeding.** Logging a pre-emergent makes the window done. Prodiamine blocks seeding for 16 weeks, dithiopyr 12, triclopyr ester 4; mesotrione never blocks. These are placeholder defaults: check the label of the product you use. A Prepare for overseeding seed date inside a block, or a blocking product on an area that's establishing, sends a warning. Seven weeks after the first pre-emergent, a reminder suggests a second (split) application of dithiopyr, and the Pre-emergent product select suggests dithiopyr.
 - **The calendar** shows the windows (projections move with the forecast), a "Start overseed prep" milestone, a planned overseed seed date in place of its window, and logged seedings, fertilizer, PGR, winterizer and herbicides ("Prodiamine — whole lawn") for 400 days. Same-day events across areas merge. Mows aren't shown.
+
+### Copying events to other calendars
+
+Lawn Growth's own calendar stays inside Home Assistant. To keep the record next to your other calendars, or on your phone, pick one or more calendars under **Configure → Lawn settings → Copy events to calendars**. It's optional: leave it empty and nothing is written anywhere.
+
+- **What's copied:** firm events only, because a calendar entry can't be changed once written: a window opening, the pre-emergent late warning, the second (split) pre-emergent reminder, and every logged application (seedings, fertilizer, PGR, winterizer, herbicides). Each is added once, as an all-day event; its description ends with a `Lawn Growth key` line.
+- **What isn't:** tentative and projected dates, overseed prep milestones and planned seed dates (they move or can be cancelled), missed windows and mows. Those stay on Lawn Growth's own calendar.
+- **Which calendars:** any calendar whose integration supports creating events; the picker lists only those. For example:
+  - [Local Calendar](https://www.home-assistant.io/integrations/local_calendar/) keeps a separate calendar inside Home Assistant, such as one next to a mowing log.
+  - [Google Calendar](https://www.home-assistant.io/integrations/google/) reaches your phone through the Google Calendar app, or Apple Calendar with the Google account added. Set up Home Assistant's Google Calendar integration first, with **read/write** access (its docs cover the application credentials).
+- **When you add a calendar**, the firm events already on Lawn Growth's calendar (up to 400 days of logs) are copied to it. Taking a calendar out and adding it back doesn't copy them twice.
+- **Changes aren't copied:** a skipped window, or a seeding date you correct, leaves the earlier entry in place; delete it there by hand.
+- **When it can't write** (the calendar is gone, or adding events has failed for 3 days), a repair appears under Settings → System → Repairs. Events wait and are added once the calendar works again; the repair clears then, or when you take that calendar out of the setting.
+- Reminders still come from the Notify target. A copied event is the record, though the target calendar's own default reminders, if any, apply.
 
 ## How it works
 

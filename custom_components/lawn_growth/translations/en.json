@@ -9,14 +9,16 @@
           "season_entity": "Mowing-season switch",
           "notify_service": "Notify",
           "run_time": "Daily run time",
-          "outdoor_temp_entity": "Outdoor temperature sensor"
+          "outdoor_temp_entity": "Outdoor temperature sensor",
+          "write_calendars": "Copy events to calendars"
         },
         "data_description": {
           "weather_entity": "Supplies today's high/low and the 10-day forecast.",
           "season_entity": "Optional. When off, the lawn is out of season. Leave empty for always in season.",
           "notify_service": "Optional. Where mow-due, first-mow and overseed pushes go.",
           "run_time": "When the day's growth is added and pushes are sent.",
-          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used."
+          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used.",
+          "write_calendars": "Optional. Firm events (a window opening, the late pre-emergent warning, the second pre-emergent reminder and every logged application) are added to these calendars once each and never changed; estimates stay on Lawn Growth's own calendar. Pick calendars whose integration can create events, such as Local Calendar or Google Calendar (set up with read/write access)."
         }
       },
       "area_basics": {
@@ -56,7 +58,8 @@
       "overseed_target": "The overseed target must be below the highest cut height.",
       "moisture_band": "Full-growth moisture must be above the growth-stops value.",
       "location_in_use": "A mower location can belong to only one area.",
-      "invalid_name": "Enter a name for the mowing area."
+      "invalid_name": "Enter a name for the mowing area.",
+      "calendar_not_writable": "Pick calendars that exist and can create events."
     },
     "abort": {
       "single_instance_allowed": "Lawn Growth is already set up. Add mowing areas from its Configure menu."
@@ -114,10 +117,12 @@
           "season_entity": "Mowing-season switch",
           "notify_service": "Notify",
           "run_time": "Daily run time",
-          "outdoor_temp_entity": "Outdoor temperature sensor"
+          "outdoor_temp_entity": "Outdoor temperature sensor",
+          "write_calendars": "Copy events to calendars"
         },
         "data_description": {
-          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used."
+          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used.",
+          "write_calendars": "Optional. Firm events (a window opening, the late pre-emergent warning, the second pre-emergent reminder and every logged application) are added to these calendars once each and never changed; estimates stay on Lawn Growth's own calendar. Pick calendars whose integration can create events, such as Local Calendar or Google Calendar (set up with read/write access)."
         }
       },
       "mower": {
@@ -145,7 +150,8 @@
       "moisture_band": "Full-growth moisture must be above the growth-stops value.",
       "location_in_use": "A mower location can belong to only one area.",
       "required_with_mower": "Required when a mower is configured.",
-      "invalid_name": "Enter a name for the mowing area."
+      "invalid_name": "Enter a name for the mowing area.",
+      "calendar_not_writable": "Pick calendars that exist and can create events."
     },
     "abort": {"last_area": "A lawn needs at least one mowing area."}
   },
@@ -342,6 +348,12 @@
       "number_increases": "A number that goes up after each mow",
       "any_change": "Any change means a mow"
     }}
+  },
+  "issues": {
+    "calendar_unavailable": {
+      "title": "Lawn Growth can't add events to {calendar}",
+      "description": "Lawn Growth copies firm application events to {calendar} ({entity_id}), but the calendar is missing or adding events has failed for 3 days. Waiting events are added once it works again.\n\nTo fix it, check the calendar's integration, or open Lawn Growth → Configure → Lawn settings and pick another calendar under Copy events to calendars, or remove this one."
+    }
   },
   "exceptions": {
     "no_seeding": {"message": "No seeding has been logged for this mowing area."},

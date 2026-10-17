@@ -2,7 +2,7 @@
 Pure Python.
 
 `calendar_events(state)` is the one builder, shared by Lawn Growth's calendar entity
-and (later) the phone-calendar writer. Each event has a stable key,
+and the calendar writer (model/calwriter.py). Each event has a stable key,
 `lawn_growth-{kind}-{season}-{area|all}-{event}`, which doesn't change when a
 projection moves. Events of the same kind and status on the same date across areas
 merge into one ("Apply winterizer — Front & Side, Back"). `firm` marks events whose
@@ -36,6 +36,10 @@ class CalEvent:
     start: date
     end: date                   # exclusive
     firm: bool = False
+    season: int = 0
+    event: str = ""             # the key's last part: open, late, applied-<date>, ...
+    areas: tuple = ()           # the areas it covers (a whole-lawn log lists each one)
+    title: str = ""             # the summary before the area label
 
 
 @dataclass(frozen=True)
@@ -234,6 +238,9 @@ def _merge(raws: list, state: CalendarState, names: dict) -> list:
         areas = sorted({r.area for r in rs}, key=lambda a: order.get(a, len(order)))
         whole = (event.startswith("applied-") and len(state.areas) > 1
                  and set(areas) >= set(state.areas))
+        if event.startswith("applied-") and LAWN in areas:
+            whole = True
+        members = tuple(state.areas) if whole else tuple(areas)
         if LAWN in areas or whole:
             areas = [LAWN]
         season = rs[0].season
@@ -255,7 +262,8 @@ def _merge(raws: list, state: CalendarState, names: dict) -> list:
                 parts[0] if parts else "")
         events.append(CalEvent(key=key, kind=kind, summary=summary + label,
                                description=description, start=start,
-                               end=max(r.end for r in rs), firm=all(r.firm for r in rs)))
+                               end=max(r.end for r in rs), firm=all(r.firm for r in rs),
+                               season=season, event=event, areas=members, title=summary))
     return sorted(events, key=lambda e: (e.start, e.summary, e.key))
 
 

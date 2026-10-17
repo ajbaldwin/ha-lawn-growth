@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from . import inputs
+from . import calendar_writer, inputs
 from .const import (AREA_KEY, AREA_MOISTURE, AREA_SOIL_DEPTH, CONF_AREAS, CONF_NOTIFY,
                     CONF_OUTDOOR_TEMP, CONF_SEASON, CONF_WEATHER, DEFAULT_SOIL_DEPTH, DOMAIN)
 from .model import (applications, appcalendar, establishment, evaluate, gdd, mow, notify,
@@ -42,6 +42,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         self.area_calendar: dict[str, appcalendar.AreaCalendar] = {}
         self.last_signals: dict[str, windows.AreaSignals] = {}
         self.calendar: list[appcalendar.CalEvent] = []
+        self._write_lock = asyncio.Lock()       # one calendar copy at a time
 
     @property
     def _opts(self) -> dict:
@@ -72,6 +73,19 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         self.async_set_updated_data(results)
         for msg in messages:
             await self._async_send(msg)
+        await self._async_write_calendars()
+
+    async def _async_write_calendars(self) -> None:
+        """Copy firm events to the calendars under Lawn settings. Runs after the
+        pushes, outside the evaluation lock (a write can be slow); its own lock keeps
+        two runs from writing the same event."""
+        try:
+            async with self._write_lock:
+                if await calendar_writer.async_write(self):
+                    async with self._lock:
+                        await self.store.async_save()
+        except Exception:  # noqa: BLE001 - calendar copies must never fail a run
+            _LOGGER.exception("Lawn Growth could not copy events to calendars")
 
     @callback
     def _schedule_retry(self, send_notifications: bool) -> None:

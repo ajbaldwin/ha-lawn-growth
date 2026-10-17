@@ -215,3 +215,24 @@ async def test_recorder_failure_does_not_fail_the_run(hass, freezer, monkeypatch
     await setup(hass, make_entry(hass, **{const.CONF_OUTDOOR_TEMP: "sensor.outdoor"}))
     assert hass.states.get("sensor.lawn_growth_lawn_days_until_due").state == "5"
     assert "recorder down" in caplog.text
+
+
+async def test_gdd_recounted_when_outdoor_sensor_added(hass, freezer, monkeypatch):
+    """GDD first counted from the forecast; adding an outdoor sensor later recounts
+    the whole season from that sensor's history."""
+    yesterday = TODAY - timedelta(days=1)
+    entry, _, calls = await _setup_signals(hass, freezer, monkeypatch,
+                                           minmax={yesterday: (80.0, 60.0)})
+    assert calls["minmax"] == []                         # no sensor yet: forecast only
+    assert hass.states.get(GDD).attributes["last_day"] == yesterday.isoformat()
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, const.CONF_OUTDOOR_TEMP: "sensor.outdoor"})
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert calls["minmax"] == [("sensor.outdoor", date(2026, 1, 1), yesterday)]
+    st = hass.states.get(GDD)
+    assert float(st.state) == pytest.approx(20.0) and st.attributes["source"] == "sensor"
+    # a reload with the same sensor doesn't recount
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(calls["minmax"]) == 1

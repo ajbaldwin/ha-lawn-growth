@@ -5,6 +5,9 @@ import asyncio
 import logging
 from datetime import date, timedelta
 
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import callback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -17,6 +20,7 @@ from .model.state import MowRecord, OverseedState
 from .store import LawnStore
 
 _LOGGER = logging.getLogger(__name__)
+RETRY_MINUTES = 15       # a run that couldn't get a forecast is retried after this
 
 
 class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
@@ -32,6 +36,8 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         # be up yet, and today's accrual happens once. The run at HA start turns it on.
         self.accrual_enabled = True
         self._flat_warned = False
+        self._retry_unsub = None
+        self._retry_notify = False
 
     @property
     def _opts(self) -> dict:
@@ -45,17 +51,50 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         try:
             results, messages = await self._evaluate(send_notifications=send_notifications)
         except UpdateFailed as err:
-            _LOGGER.warning("Lawn Growth evaluation skipped: %s", err)
+            # Expected while HA is still starting (a cloud weather integration may not
+            # be up yet), so only a warning once HA is running.
+            level = logging.WARNING if self.accrual_enabled else logging.INFO
+            _LOGGER.log(level, "Lawn Growth evaluation skipped, retrying in %d minutes: %s",
+                        RETRY_MINUTES, err)
+            self._schedule_retry(send_notifications)
             # A mutation (e.g. a date picker) may have just saved to the Store even
             # though today's evaluation couldn't run; refresh store-backed entities
             # so they show it without waiting for the forecast to come back.
             self.async_update_listeners()
             return
+        self.cancel_retry()
         # Publish before awaiting the sends: a mutation that runs while a send is in
         # flight publishes newer results, which these must not overwrite afterwards.
         self.async_set_updated_data(results)
         for msg in messages:
             await self._async_send(msg)
+
+    @callback
+    def _schedule_retry(self, send_notifications: bool) -> None:
+        """One pending retry at a time; it sends notifications if any failed run would
+        have (a missed daily run still pushes once the forecast is back)."""
+        self._retry_notify = self._retry_notify or send_notifications
+        if self._retry_unsub is not None:
+            return
+
+        async def _retry(_now) -> None:
+            self._retry_unsub = None
+            notify, self._retry_notify = self._retry_notify, False
+            await self.async_run(send_notifications=notify)
+
+        self._retry_unsub = async_call_later(self.hass, RETRY_MINUTES * 60, _retry)
+
+    @callback
+    def cancel_retry(self) -> None:
+        if self._retry_unsub is not None:
+            self._retry_unsub()
+            self._retry_unsub = None
+        self._retry_notify = False
+
+    @property
+    def waiting_for_weather(self) -> bool:
+        """True while the last run failed (or none succeeded yet)."""
+        return self._retry_unsub is not None or self.data is None
 
     async def _evaluate(self, *, send_notifications: bool) -> tuple[dict, list]:
         """Evaluate every area under the lock and save the Store. Returns the results
@@ -64,6 +103,10 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         notify_enabled = send_notifications and bool(self._opts.get(CONF_NOTIFY))
         async with self._lock:
             today = dt_util.now().date()
+            weather_state = self.hass.states.get(self._opts[CONF_WEATHER])
+            if weather_state is None or weather_state.state in (STATE_UNAVAILABLE,
+                                                                STATE_UNKNOWN):
+                raise UpdateFailed(f"{self._opts[CONF_WEATHER]} is not available yet")
             temps = await inputs.async_read_temps(self.hass, self._opts[CONF_WEATHER], today)
             if temps is None:
                 raise UpdateFailed(f"no temperature forecast from {self._opts[CONF_WEATHER]}")
@@ -127,14 +170,18 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_update_gdd(self, yesterday: date) -> None:
         tun = self.tunables
-        days = gdd.days_to_process(self.store.gdd, yesterday, tun)
-        if not days:
-            return
         sensor = self._opts.get(CONF_OUTDOOR_TEMP)
+        # A newly added or changed outdoor sensor restarts the season, so it is
+        # recounted from that sensor's history.
+        state = gdd.for_sensor(self.store.gdd, sensor or "")
+        days = gdd.days_to_process(state, yesterday, tun)
+        if not days:
+            self.store.gdd = state
+            return
         observed = (await inputs.async_daily_min_max(self.hass, sensor, days[0], days[-1])
                     if sensor else {})
         forecast = {h.date: h.mean_f for s in self.store.areas.values() for h in s.history}
-        state, gaps = self.store.gdd, 0
+        gaps = 0
         for day in days:
             if day in observed:
                 tmax, tmin = observed[day]

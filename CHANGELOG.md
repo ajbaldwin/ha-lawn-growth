@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Startup resilience
+- **Lawn Growth no longer fails to load when the weather entity isn't ready at startup.** Cloud weather integrations can come up after Lawn Growth; before, that showed Lawn Growth as failed in Devices & services until it was reloaded. Now it loads, its sensors stay unavailable briefly, and it runs as soon as the weather entity comes up, retrying every 15 minutes until a forecast arrives. A missed daily run still sends its notifications once it succeeds.
+- **Adding or changing the outdoor temperature sensor recounts growing degree days.** Before, a sensor set after the first run only counted new days, leaving a partial total counted from the forecast. Now the season is recounted from the sensor's history whenever the sensor is added or changed.
+
 ## 0.1.0-beta.6 — Soil temperature and growing degree days
 - **Soil temperature per mowing area**, from the GeoDrops probes behind its soil moisture sensors, at a depth you pick (1.5″, 2.5″ default, 3.5″). A reading counts only while GeoDrops reports good quality and the probe isn't calibrating, so a freshly installed or pulled probe drops out by itself and comes back once GeoDrops trusts it again. The sensor shows the last 5 days' mean once at least 3 of them are complete.
 - **Growing degree days** (base 50 °F, from Jan 1), lawn-wide. Set an **Outdoor temperature sensor** under Lawn settings to use observed highs and lows (back-filled from its history); otherwise the weather forecast is used. Set the sensor right after updating: the back-fill runs once, on the first daily run after the update.

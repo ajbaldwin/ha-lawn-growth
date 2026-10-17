@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — Startup resilience
+## Unreleased — Application calendar and startup resilience
+- **Application windows for pre-emergent, winterizer and fall overseeding**, timed from soil temperature (or growing degree days and air temperatures without probes). New **Pre-emergent** (lawn-wide), **Winterizer** and **Overseed window** (per area) sensors read tentative, projected, open, done, skipped or missed, with the dates, trigger value and source as attributes.
+- **Notifications** when a window opens, plus pre-emergent heads-up, late, germination-expected and missed alerts and an overseed closing-soon alert. Once per window per season; areas crossing together share one message.
+- **Applications calendar** (`calendar.lawn_growth_applications`): upcoming windows and everything logged — seedings, fertilizer, PGR, winterizer and herbicides — kept for 400 days, separate from the 35-day records the growth model uses.
+- **Product-aware herbicide logging.** `lawn_growth.log_event` gains kinds `winterizer` and `herbicide` (with a `product`); leave `device_id` empty to log for every area. A pre-emergent blocks seeding for its label period, and Prepare for overseeding warns inside it. New **Last pre-emergent** date picker and **Pre-emergent product** select, and a per-area **Last winterizer** picker. A winterizer counts as fertilizer for growth.
+- **`lawn_growth.skip_application`** skips this season's pre-emergent, winterizer or overseed window.
+- The `lawn_growth.log_event` service is now called "Log an application".
 - **Lawn Growth no longer fails to load when the weather entity isn't ready at startup.** Cloud weather integrations can come up after Lawn Growth; before, that showed Lawn Growth as failed in Devices & services until it was reloaded. Now it loads, its sensors stay unavailable briefly, and it runs as soon as the weather entity comes up, retrying every 15 minutes until a forecast arrives. A missed daily run still sends its notifications once it succeeds.
 - **Adding or changing the outdoor temperature sensor recounts growing degree days.** Before, a sensor set after the first run only counted new days, leaving a partial total counted from the forecast. Now the season is recounted from the sensor's history whenever the sensor is added or changed.
 

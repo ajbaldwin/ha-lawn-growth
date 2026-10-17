@@ -118,9 +118,10 @@ def test_services_yaml_has_no_target_device_filter():
 
 
 def test_services_yaml_area_services_require_device_id_field():
-    """Every mowing-area service (all but evaluate_now) must declare a required `device_id`
-    field with a device selector filtered to this integration's mowing-area devices -- the
-    replacement for the target device filter hassfest now rejects. The lawn-level device
+    """Every mowing-area service (all but evaluate_now) must declare a `device_id` field with
+    a device selector filtered to this integration's mowing-area devices -- the replacement
+    for the target device filter hassfest now rejects. It is required except for log_event
+    and skip_application, where leaving it empty means every area. The lawn-level device
     (Evaluate now's) is kept out of the area pickers by the "Mowing area" model filter, and
     out of the area logic entirely by the not_an_area check in entity.py."""
     services = load_yaml(Path(__file__).parent.parent / "custom_components" / "lawn_growth"
@@ -130,7 +131,7 @@ def test_services_yaml_area_services_require_device_id_field():
             assert not spec
             continue
         field = spec["fields"]["device_id"]
-        assert field["required"] is True, name
+        assert field["required"] is (name not in ("log_event", "skip_application")), name
         device_filter = field["selector"]["device"]["filter"]
         filters = device_filter if isinstance(device_filter, list) else [device_filter]
         assert len(filters) == 1, name

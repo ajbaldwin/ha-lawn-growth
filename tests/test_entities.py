@@ -32,7 +32,11 @@ async def test_entity_ids_and_names(hass, freezer):
                    | {"button.lawn_growth_evaluate_now"}
                    | {f"date.{p}_{k}" for k in DATE_KEYS}
                    | {f"number.{p}_log_mow_height"}
-                   | {f"sensor.{p}_soil_temperature", "sensor.lawn_growth_gdd"})
+                   | {f"sensor.{p}_soil_temperature", "sensor.lawn_growth_gdd"}
+                   | {f"sensor.{p}_winterizer", f"sensor.{p}_overseed_window",
+                      "sensor.lawn_growth_pre_emergent", "date.lawn_growth_last_pre_emergent",
+                      "select.lawn_growth_pre_emergent_product",
+                      "calendar.lawn_growth_applications"})
     due = hass.states.get(f"sensor.{p}_days_until_due")
     assert due.state == "5" and due.attributes["days"] == 5
     assert due.attributes["friendly_name"] == "Front & Side Days until mow due"

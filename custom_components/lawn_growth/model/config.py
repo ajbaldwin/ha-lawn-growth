@@ -50,6 +50,41 @@ class Tunables:
     soil_window_days: int = 5
     soil_min_valid_days: int = 3
     soil_days_kept: int = 7
+    # application log and herbicide seeding waits (label placeholders: check the label)
+    application_retention_days: int = 400
+    prodiamine_seeding_block_days: int = 112            # 16 weeks
+    dithiopyr_seeding_block_days: int = 84              # 12 weeks
+    triclopyr_ester_seeding_block_days: int = 28        # 4 weeks
+    other_pre_emergent_seeding_block_days: int = 84
+    other_post_emergent_seeding_block_days: int = 28
+    # pre-emergent window (lawn-wide; spring). Soil5 °F / GDD50 per stage:
+    # heads-up (soil also rising), open, late warning, germination expected
+    pre_soil_f: tuple = (47.0, 50.0, 53.0, 55.0)
+    pre_gdd: tuple = (75.0, 125.0, 175.0, 200.0)
+    pre_close_days: int = 14                 # missed this long after germination
+    pre_open_estimate_days: int = 35         # open -> expected close, when unprojectable
+    pre_typical: tuple = (4, 10)             # (month, day) of the tentative event
+    pre_season_end_month: int = 7            # from Jul 1 the next spring's window shows
+    split_reminder: bool = True
+    split_reminder_days: int = 49            # 7 weeks after the first application
+    # winterizer (per area; late fall)
+    winterizer_typical: tuple = (11, 5)
+    winterizer_from_month: int = 8
+    winterizer_quiet_days: int = 10          # after the last mow, with no mow due
+    winterizer_spacing_days: int = 28        # since the last fertilizer
+    winterizer_min_soil_f: float = 40.0
+    winterizer_cold_days: int = 3
+    # fall overseed window (per area)
+    overseed_typical: tuple = (8, 25)
+    overseed_from_month: int = 8
+    overseed_open_soil_f: float = 70.0
+    overseed_ideal_low_f: float = 60.0
+    overseed_close_soil_f: float = 55.0
+    overseed_open_air_t7_f: float = 72.0
+    overseed_close_air_t7_f: float = 50.0
+    overseed_closing_notice_days: int = 7
+    # application calendar
+    calendar_show_mows: bool = False
 
 
 @dataclass(frozen=True)

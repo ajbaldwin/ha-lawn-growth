@@ -1,4 +1,5 @@
-"""Lawn Growth services. Every service except evaluate_now targets mowing-area devices."""
+"""Lawn Growth services. All but evaluate_now target mowing-area devices; log_event
+and skip_application default to every area when no device is given."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -10,6 +11,8 @@ from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .model.applications import PRODUCTS
+from .model.windows import KINDS
 
 ATTR_DATE = "date"
 ATTR_HEIGHT = "height_in"
@@ -17,8 +20,12 @@ ATTR_KIND = "kind"
 ATTR_SEED_DATE = "seed_date"
 ATTR_TARGET = "target_in"
 ATTR_BUFFER = "buffer_days"
+ATTR_PRODUCT = "product"
+
+LOG_KINDS = ("fert", "pgr", "winterizer", "herbicide")
 
 _DEVICE = {vol.Required(ATTR_DEVICE_ID): vol.All(cv.ensure_list, [cv.string])}
+_ANY_DEVICE = {vol.Optional(ATTR_DEVICE_ID): vol.All(cv.ensure_list, [cv.string])}
 _HEIGHT = vol.All(vol.Coerce(float), vol.Range(min=0.5, max=8.0))
 
 SCHEMAS = {
@@ -27,8 +34,11 @@ SCHEMAS = {
     "correct_last_mow": vol.Schema({**_DEVICE, vol.Required(ATTR_HEIGHT): _HEIGHT}),
     "log_seeding": vol.Schema({**_DEVICE, vol.Optional(ATTR_DATE): cv.date}),
     "seedlings_ready": vol.Schema(_DEVICE),
-    "log_event": vol.Schema({**_DEVICE, vol.Required(ATTR_KIND): vol.In(["fert", "pgr"]),
+    "log_event": vol.Schema({**_ANY_DEVICE, vol.Required(ATTR_KIND): vol.In(LOG_KINDS),
+                             vol.Optional(ATTR_PRODUCT): vol.In(list(PRODUCTS)),
                              vol.Optional(ATTR_DATE): cv.date}),
+    "skip_application": vol.Schema({**_ANY_DEVICE,
+                                    vol.Required(ATTR_KIND): vol.In(KINDS)}),
     "prep_overseed": vol.Schema({**_DEVICE, vol.Required(ATTR_SEED_DATE): cv.date,
                                  vol.Optional(ATTR_TARGET): _HEIGHT,
                                  vol.Optional(ATTR_BUFFER): vol.All(vol.Coerce(int),
@@ -76,6 +86,16 @@ def _targets(hass: HomeAssistant, call: ServiceCall) -> list:
     return out
 
 
+def _grouped(hass: HomeAssistant, call: ServiceCall) -> list:
+    """[(coordinator, area keys)]; with no device_id, every area of every entry."""
+    if not call.data.get(ATTR_DEVICE_ID):
+        return [(e.runtime_data, None) for e in _loaded(hass)]
+    grouped: dict = {}
+    for coord, key in _targets(hass, call):
+        grouped.setdefault(id(coord), (coord, []))[1].append(key)
+    return list(grouped.values())
+
+
 @callback
 def async_register(hass: HomeAssistant) -> None:
     async def log_mow(call: ServiceCall) -> None:
@@ -105,11 +125,24 @@ def async_register(hass: HomeAssistant) -> None:
 
     async def log_event(call: ServiceCall) -> None:
         on = _logged_date(call)
-        grouped: dict = {}
-        for coord, key in _targets(hass, call):
-            grouped.setdefault(id(coord), (coord, []))[1].append(key)
-        for coord, keys in grouped.values():
-            await coord.async_log_event(call.data[ATTR_KIND], keys, on=on)
+        kind, product = call.data[ATTR_KIND], call.data.get(ATTR_PRODUCT, "")
+        if kind == "herbicide" and not product:
+            raise _error("product_required")
+        if kind != "herbicide" and product:
+            raise _error("product_herbicide_only")
+        for coord, keys in _grouped(hass, call):
+            await coord.async_log_event(kind, keys, on=on, product=product)
+
+    async def skip_application(call: ServiceCall) -> None:
+        kind = call.data[ATTR_KIND]
+        groups = _grouped(hass, call)
+        if kind == "overseed":
+            for coord, keys in groups:
+                for key in keys or []:
+                    if coord.areas[key].overseed_target_in is None:
+                        raise _error("no_overseed", area=coord.areas[key].name)
+        for coord, keys in groups:
+            await coord.async_skip_application(kind, keys)
 
     async def prep_overseed(call: ServiceCall) -> None:
         targets = _targets(hass, call)
@@ -131,7 +164,8 @@ def async_register(hass: HomeAssistant) -> None:
 
     handlers = {"log_mow": log_mow, "correct_last_mow": correct_last_mow,
                 "log_seeding": log_seeding, "seedlings_ready": seedlings_ready,
-                "log_event": log_event, "prep_overseed": prep_overseed,
+                "log_event": log_event, "skip_application": skip_application,
+                "prep_overseed": prep_overseed,
                 "cancel_overseed": cancel_overseed, "evaluate_now": evaluate_now}
     for name, handler in handlers.items():
         hass.services.async_register(DOMAIN, name, handler, schema=SCHEMAS[name])

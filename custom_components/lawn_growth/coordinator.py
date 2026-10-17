@@ -14,7 +14,8 @@ from homeassistant.util import dt as dt_util
 from . import inputs
 from .const import (AREA_KEY, AREA_MOISTURE, AREA_SOIL_DEPTH, CONF_AREAS, CONF_NOTIFY,
                     CONF_OUTDOOR_TEMP, CONF_SEASON, CONF_WEATHER, DEFAULT_SOIL_DEPTH, DOMAIN)
-from .model import establishment, evaluate, gdd, mow, notify, presets, soiltemp
+from .model import (applications, appcalendar, establishment, evaluate, gdd, mow, notify,
+                    overseed, presets, soiltemp, windows)
 from .model.config import Tunables
 from .model.state import MowRecord, OverseedState
 from .store import LawnStore
@@ -38,6 +39,9 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         self._flat_warned = False
         self._retry_unsub = None
         self._retry_notify = False
+        self.area_calendar: dict[str, appcalendar.AreaCalendar] = {}
+        self.last_signals: dict[str, windows.AreaSignals] = {}
+        self.calendar: list[appcalendar.CalEvent] = []
 
     @property
     def _opts(self) -> dict:
@@ -144,8 +148,89 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                     messages.extend(msgs)
                 self.store.areas[key] = new_state
                 results[key] = result
+            messages.extend(self._update_windows(today, temps, results,
+                                                 send_notifications=send_notifications))
             await self.store.async_save()
         return results, messages
+
+    # --- application windows and calendar ---------------------------------------
+
+    def _area_signals(self, key: str, result, today: date) -> windows.AreaSignals:
+        tun, state = self.tunables, self.store.areas[key]
+        soil5, _ = self.soil5(key, today)
+        prev = slope = None
+        if soil5 is not None:
+            days = soiltemp.days_by_date(state.soil_days)
+            prev, _ = soiltemp.soil5(days, today - timedelta(days=1), tun.soil_window_days,
+                                     tun.soil_min_valid_days)
+            slope = soiltemp.trend(days, today, tun.soil_days_kept, tun.soil_min_valid_days)
+        return windows.AreaSignals(
+            key=key, soil5=soil5, soil5_prev=prev, soil_slope=slope,
+            air_means=tuple(h.mean_f for h in state.history[-7:]), phase=result.phase,
+            mow_due=result.mow_due, days_until_due=result.days_until_due,
+            dormant=state.low_gp_streak >= tun.dormant_days, last_mow=state.last_mow,
+            overseed_capable=self.areas[key].overseed_target_in is not None)
+
+    def _area_calendar(self, key: str, result, today: date) -> appcalendar.AreaCalendar:
+        tun, cfg, state = self.tunables, self.areas[key], self.store.areas[key]
+        days = None
+        if cfg.overseed_target_in is not None:
+            days = overseed.prep_days(
+                current_cut_in=result.last_cut_in,
+                target_in=state.overseed.target_in or cfg.overseed_target_in,
+                regrowth_per_day_in=result.growth_today_mm / 25.4,
+                min_mow_interval_days=tun.overseed_min_mow_interval_days,
+                max_removal_fraction=tun.overseed_max_removal_fraction)
+        buffer = (state.overseed.buffer_days if state.overseed.buffer_days is not None
+                  else tun.overseed_buffer_days)
+        return appcalendar.AreaCalendar(
+            name=cfg.name, planned_seed=state.overseed.seed_date,
+            earliest_seed=today + timedelta(days=days) if days is not None else None,
+            prep_days=days, buffer_days=buffer)
+
+    def _update_windows(self, today: date, temps, results: dict, *,
+                        send_notifications: bool) -> list:
+        """Advance the application windows, rebuild the calendar and return the
+        window pushes. Pushes are decided on daily runs only, and their flags are
+        stored even without a notify target, so setting one up later doesn't replay
+        the season."""
+        tun = self.tunables
+        apps = self.applications(today)
+        gdd_total = self.store.gdd.total if self.store.gdd.year == today.year else None
+        lawn = windows.LawnSignals(today=today, gdd=gdd_total,
+                                   horizon=tuple(m for _, m in temps.horizon))
+        signals = [self._area_signals(k, r, today) for k, r in results.items()]
+        self.last_signals = {a.key: a for a in signals}
+        self.store.windows = windows.update_all(self.store.windows, lawn, signals, apps, tun)
+        self.area_calendar = {k: self._area_calendar(k, r, today) for k, r in results.items()}
+        messages = []
+        if send_notifications:
+            blocks = {k: applications.seeding_block(apps, k, today, tun) for k in results}
+            messages, self.store.windows = notify.decide_windows(
+                self.store.windows, {k: c.name for k, c in self.areas.items()},
+                apps=apps, tun=tun, today=today, blocks=blocks)
+        self.calendar = appcalendar.calendar_events(self.calendar_state(today))
+        return messages
+
+    def applications(self, today: date) -> list:
+        return self.store.logged_applications(today, self.tunables.application_retention_days)
+
+    def calendar_state(self, today: date) -> appcalendar.CalendarState:
+        return appcalendar.CalendarState(
+            today=today, tunables=self.tunables, windows=self.store.windows,
+            applications=tuple(self.applications(today)), areas=dict(self.area_calendar),
+            mows=tuple((r.date, k) for k, s in self.store.areas.items()
+                       for r in s.mow_records))
+
+    def window(self, kind: str, area: str = windows.LAWN):
+        return windows.current(self.store.windows, kind, dt_util.now().date(),
+                               self.tunables, area)
+
+    @property
+    def pre_emergent_product(self) -> str:
+        """The Pre-emergent product select: the user's pick, else the suggestion."""
+        return (self.store.pre_emergent_product
+                or windows.suggested_pre_product(self.window("pre_emergent")))
 
     def _find_soil_probes(self) -> None:
         self.soil_probes = {
@@ -272,18 +357,82 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         await self._async_mutate(key, lambda s: mow.correct_last_mow(s, height_in))
 
     async def async_log_seeding(self, key: str, *, on: date | None = None) -> None:
-        seeded = on or dt_util.now().date()
-        await self._async_mutate(key, lambda s: establishment.log_seeding(s, seeded))
+        today = dt_util.now().date()
+        seeded = on or today
+        async with self._lock:
+            # A seeding logged while one is on record replaces it (the Seeding date
+            # picker corrects the date), so its application-log entry moves with it.
+            self.store.add_application(
+                "seeding", seeded, [key], today, replaces=self.store.areas[key].seeding_date,
+                retention_days=self.tunables.application_retention_days)
+            self.store.areas[key] = establishment.log_seeding(self.store.areas[key], seeded)
+            await self.store.async_save()
+        await self.async_run()
 
     async def async_seedlings_ready(self, key: str) -> None:
         await self._async_mutate(key, establishment.mark_ready)
 
-    async def async_log_event(self, kind: str, keys, *, on: date | None = None) -> None:
+    async def async_log_event(self, kind: str, keys=None, *, on: date | None = None,
+                              product: str = "") -> None:
+        """Log an application for these areas (None: every area). Fertilizer, PGR
+        and winterizer also feed the growth model; herbicides only the log."""
         today = dt_util.now().date()
+        on = on or today
+        keys = list(keys) if keys is not None else list(self.areas)
+        warnings = []
         async with self._lock:
-            self.store.add_event(kind, on or today, keys, today)
+            if kind in ("fert", "pgr", "winterizer"):
+                self.store.add_event(kind, on, keys, today)
+            self.store.add_application(kind, on, keys, today, product=product,
+                                       retention_days=self.tunables.application_retention_days)
+            if kind == "herbicide" and applications.block_days(product, self.tunables) > 0:
+                for key in keys:
+                    s = self.store.areas[key]
+                    if s.seeding_date is not None and not s.seedlings_ready:
+                        warnings.append(
+                            f"{self.areas[key].name} is establishing new grass (seeded "
+                            f"{applications.fmt_day(s.seeding_date)}): "
+                            f"{applications.product_label(product)} can keep the "
+                            f"seedlings from rooting.")
             await self.store.async_save()
         await self.async_run()
+        for text in warnings:
+            await self._async_warn(text)
+
+    async def async_log_pre_emergent(self, *, on: date | None = None) -> None:
+        """The Last pre-emergent picker: every area, with the selected product. The
+        select then follows the suggestion again (the split reminder's dithiopyr)."""
+        product = self.pre_emergent_product
+        async with self._lock:
+            self.store.pre_emergent_product = None
+        await self.async_log_event("herbicide", None, on=on, product=product)
+
+    async def async_set_pre_emergent_product(self, product: str) -> None:
+        async with self._lock:
+            self.store.pre_emergent_product = product
+            await self.store.async_save()
+        self.async_update_listeners()
+
+    async def async_skip_application(self, kind: str, keys=None) -> None:
+        """skip_application: this season's window for the kind. Pre-emergent is
+        lawn-wide; the others apply to these areas (None: every area)."""
+        today = dt_util.now().date()
+        season = windows.current_season(kind, today, self.tunables)
+        areas = [windows.LAWN] if kind == "pre_emergent" else (
+            list(keys) if keys is not None else list(self.areas))
+        async with self._lock:
+            for area in areas:
+                if kind == "overseed" and self.areas[area].overseed_target_in is None:
+                    continue
+                key = windows.window_key(kind, season, area)
+                current = self.store.windows.get(key) or windows.Window(kind, season, area)
+                self.store.windows[key] = windows.skip(current, today)
+            await self.store.async_save()
+        await self.async_run()
+
+    async def _async_warn(self, text: str) -> None:
+        _LOGGER.warning("Lawn Growth: %s", text)
+        await self._async_send(notify.Message(notify.TITLE, text))
 
     async def async_prep_overseed(self, key: str, seed_date: date,
                                   target_in: float | None = None,
@@ -293,6 +442,11 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
             c.overseed = OverseedState(seed_date, target_in, buffer_days, "")
             return c
         await self._async_mutate(key, fn)
+        block = applications.seeding_block(self.applications(dt_util.now().date()), key,
+                                           seed_date, self.tunables)
+        if block is not None:
+            await self._async_warn(f"{self.areas[key].name}: {block.text()} (seed date "
+                                   f"{applications.fmt_day(seed_date)}).")
 
     async def async_cancel_overseed(self, key: str) -> None:
         def fn(s):

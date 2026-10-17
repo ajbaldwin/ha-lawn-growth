@@ -74,6 +74,20 @@ def soil5(days: dict[date, Optional[float]], today: date, window: int = 5,
     return sum(vals) / len(vals), len(vals)
 
 
+def trend(days: dict[date, Optional[float]], today: date, window: int = 7,
+          min_valid: int = 3) -> Optional[float]:
+    """Least-squares slope (°F/day) of the valid daily means in the trailing window
+    ending yesterday; None below min_valid days."""
+    pts = [(-n, days[today - timedelta(days=n)]) for n in range(window, 0, -1)
+           if days.get(today - timedelta(days=n)) is not None]
+    if len(pts) < min_valid:
+        return None
+    mx = sum(x for x, _ in pts) / len(pts)
+    my = sum(y for _, y in pts) / len(pts)
+    sxx = sum((x - mx) ** 2 for x, _ in pts)
+    return sum((x - mx) * (y - my) for x, y in pts) / sxx
+
+
 def source_for(soil5_value: Optional[float]) -> str:
     return "geodrops" if soil5_value is not None else "gdd"
 

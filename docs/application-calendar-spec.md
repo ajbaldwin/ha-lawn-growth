@@ -1,6 +1,6 @@
 # Application calendar — spec (draft)
 
-Status: draft, 2026-10-17. P1 (§1) is built; P2–P4 are not.
+Status: draft, 2026-10-17. P1 (§1) and P2 (§2.1–2.3, §2.5, §3–4 without post-emergent) are built; P3–P4 are not. See "P2 as built" below for the choices P2 made where the spec left room.
 
 ## Goal
 
@@ -301,9 +301,26 @@ Lawn Growth is published for other people, so the phone calendar must work for i
 | Phase | Contents | Estimate |
 |---|---|---|
 | P1 ✅ | Soil source selection, GDD, Soil temperature and GDD sensors. No alerts. Ship **before Jan 1** so GDD counts from day one, or set the outdoor temperature sensor so it back-fills from statistics. | ~1 day |
-| P2 | Windows, status sensors, notifications, application log, calendar entity | ~1.5–2 days |
+| P2 ✅ | Windows, status sensors, notifications, application log, calendar entity | ~1.5–2 days |
 | P3 | Phone calendar: the setting and its validation, the firm-event writer and its ledger, the repair issue, README/CHANGELOG (§5.1). | ~0.5–1 day |
 | P4 | Post-emergent: windows, spray-day check, `Good spray day`, the Mowing allowed hold, `flag_weeds`. Starts by checking which forecast fields common weather integrations return. Needed by May (spring broadleaf). | ~1–1.5 days |
+
+## P2 as built
+
+Choices made where the spec left room (P3 and P4 build on these):
+
+- **Products.** "Other" is two products, `other_pre_emergent` and `other_post_emergent`, so a log always says whether it counts as a pre-emergent. The Pre-emergent product select offers prodiamine, dithiopyr and other (pre-emergent). Any pre-emergent product makes the window done (other pre-emergent: 12-week seeding wait, a placeholder like the rest). Mesotrione and the post-emergents never close the pre-emergent window.
+- **Seeding block** is the block that ends last among the area's logged products (not only the most recent log), so a short triclopyr wait doesn't hide a longer prodiamine one.
+- **Seasons.** Pre-emergent is evaluated Jan 1 – Jun 30; from Jul 1 the next spring's window shows as tentative, and an unfinished window closes as missed. Winterizer and overseed are evaluated from Aug 1 to Dec 31. Fall soil passing back through 47–55 °F never touches the pre-emergent.
+- **Pre-emergent notifications** are heads-up, apply now, late, germination expected (the dithiopyr suggestion) and missed. When several stages are new at once (a first run in late spring), only the latest is sent. The split reminder also pushes on its date.
+- **Projections.** GDD from the forecast's daily means; soil from the least-squares trend of the last 7 daily soil means. The pre-emergent's expected close extrapolates the same signals past the forecast, else open + 35 days.
+- **Winterizer** needs a logged mow (condition 1); dormancy or cold soil only closes it once it's open or the area has been in wind-down this season, so summer dormancy isn't a miss. Its source is `geodrops` or `air`.
+- **Overseed window** exists for areas with an overseed target (cool-season). Without probes its source is `air` (7-day air mean), and the air-temperature note is added to its alerts too. A window that closes before it was seen open reads missed (silently). "Closing" is sent when the projected close is within 7 days. "Done" means a seeding logged during the season.
+- **Notifications** are flagged on daily runs even without a Notify target, so setting one up later doesn't replay the season.
+- **Calendar.** A done pre-emergent shows as its logged application ("Prodiamine — whole lawn", with the seeding block) rather than a separate "Pre-emergent applied" event. Skipped windows drop their upcoming events but keep the open/late events already passed. A log covering every area reads "whole lawn" and its key uses `all`; merged area events use `front+back`. Logged events use `applied-<date>` as the event part of the key and the product as the kind for herbicides. A planned seed date replaces the overseed window and its prep milestone.
+- **Services.** `log_event` with no `device_id` logs for every area, for every kind. `skip_application` without `device_id` skips every area's window; logging afterwards still makes it done (there's no un-skip).
+- **Storage.** Store 1.2 (minor bump, so an older version still loads it). The migration seeds the application log from the fert/PGR events and current seeding dates. Seedings are logged too; re-setting a seeding date replaces its log entry.
+- Not built: the optional probes-back-online notification (§1.3).
 
 ## Later
 

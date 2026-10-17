@@ -118,3 +118,14 @@ def plan(*, current_cut_in: float, target_in: float, seed_date: Optional[date],
                         next_mow_in_days=min_mow_interval_days, feasible=True,
                         earliest_seed_date=None, arrival_date=arrival,
                         status="descending", target_in=target_in)
+
+
+def prep_days(*, current_cut_in: float, target_in: float, regrowth_per_day_in: float,
+              min_mow_interval_days: int, max_removal_fraction: float) -> Optional[int]:
+    """Days the descent to the target needs, first pass today (the same count `plan`
+    uses for its earliest seed date); None if regrowth stalls it."""
+    passes = passes_needed(current_cut_in, target_in, max_removal_fraction,
+                           regrowth_per_day_in * min_mow_interval_days)
+    if passes is None:
+        return None
+    return max(0, passes - 1) * min_mow_interval_days

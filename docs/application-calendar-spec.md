@@ -213,7 +213,7 @@ Today fert/PGR records are pruned after 35 days (`store.py` `EVENT_RETENTION_DAY
 **Lawn-wide**
 - `calendar.lawn_growth_applications` (read-only in v1)
 - `sensor.…_gdd` — GDD50 since the start date; attributes: start date, input source, last season's total
-- `Pre-emergent` — enum status sensor; attributes: open/close/projected dates, trigger value, source, the area that set it, and the seeding block's end date
+- `Pre-emergent` — enum status sensor; attributes: open/close/projected dates (an `estimated_date`, the typical date, while tentative), trigger value, source, the area that set it, and the seeding block's end date
 - `Last pre-emergent` — date picker (logs for every area) plus a `Pre-emergent product` select it uses (prodiamine/dithiopyr/other), defaulting to the product the split reminder suggests. This follows the **Log mow height** pattern.
 
 **Per area**

@@ -218,12 +218,16 @@ async def test_area_window_sensors(hass, freezer):
     await _setup(hass, freezer)
     win = hass.states.get("sensor.lawn_growth_back_winterizer")
     assert win.state == "tentative" and win.attributes["season"] == 2026
+    assert win.attributes["estimated_date"] == "2026-11-05"
     assert win.attributes["conditions"] == {"wound_down": False, "spacing": True,
                                             "green": True}
     ov = hass.states.get("sensor.lawn_growth_back_overseed_window")
     # no probes: a 68 °F 7-day air mean is cool enough, but not falling yet
     assert ov.state == "projected" and ov.attributes["source"] == "air"
     assert ov.attributes["projected_date"] == (FALL + timedelta(days=1)).isoformat()
+    assert ov.attributes["estimated_date"] is None
+    pre = hass.states.get(PRE)
+    assert pre.state == "tentative" and pre.attributes["estimated_date"] == "2027-04-10"
 
 
 async def test_calendar_entity(hass, freezer, hass_storage):

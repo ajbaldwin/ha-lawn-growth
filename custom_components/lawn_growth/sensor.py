@@ -187,12 +187,16 @@ def _iso(value):
     return value.isoformat() if value else None
 
 
-def _window_attrs(w, names: dict) -> dict:
-    """Attributes every window status sensor shares."""
+def _window_attrs(w, names: dict, today, tun) -> dict:
+    """Attributes every window status sensor shares. A tentative window has no
+    projection yet; `estimated_date` is the typical date its calendar event uses."""
+    estimated = (max(windows.typical_date(w.kind, w.season, tun), today)
+                 if w.status == "tentative" else None)
     return {"season": w.season,
             "open_date": _iso(w.reached_on("open")),
             "close_date": _iso(w.closed or w.expected_close),
             "projected_date": _iso(w.projected),
+            "estimated_date": _iso(estimated),
             "applied_date": _iso(w.done),
             "skipped_date": _iso(w.skipped),
             "trigger_value": w.value,
@@ -239,7 +243,7 @@ class PreEmergentSensor(_WindowSensor, LawnEntity, SensorEntity):
         stages = [s for s in windows.PRE_STAGES if s in w.reached]
         blocks = [b for b in (applications.seeding_block(apps, k, today, tun)
                               for k in c.areas) if b]
-        return {**_window_attrs(w, self._names()),
+        return {**_window_attrs(w, self._names(), today, tun),
                 "stage": stages[-1] if stages else None,
                 "stages": {s: w.reached[s]["date"] for s in stages},
                 "trigger_unit": {"geodrops": "°F", "gdd": "GDD"}.get(w.source),
@@ -266,7 +270,7 @@ class AreaWindowSensor(_WindowSensor, LawnGrowthEntity, SensorEntity):
         c, tun, key = self.coordinator, self.coordinator.tunables, self._area_key
         today = dt_util.now().date()
         apps = c.applications(today)
-        attrs = _window_attrs(w, self._names())
+        attrs = _window_attrs(w, self._names(), today, tun)
         if self._kind == "winterizer":
             signals = c.last_signals.get(key)
             attrs["conditions"] = (windows.winterizer_conditions(w, today, signals, apps, tun)

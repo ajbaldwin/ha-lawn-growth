@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased — Soil temperature and growing degree days
+## 0.1.0-beta.6 — Soil temperature and growing degree days
 - **Soil temperature per mowing area**, from the GeoDrops probes behind its soil moisture sensors, at a depth you pick (1.5″, 2.5″ default, 3.5″). A reading counts only while GeoDrops reports good quality and the probe isn't calibrating, so a freshly installed or pulled probe drops out by itself and comes back once GeoDrops trusts it again. The sensor shows the last 5 days' mean once at least 3 of them are complete.
-- **Growing degree days** (base 50 °F, from Jan 1), lawn-wide. Set an **Outdoor temperature sensor** under Lawn settings to use observed highs and lows (back-filled from its history); otherwise the weather forecast is used.
+- **Growing degree days** (base 50 °F, from Jan 1), lawn-wide. Set an **Outdoor temperature sensor** under Lawn settings to use observed highs and lows (back-filled from its history); otherwise the weather forecast is used. Set the sensor right after updating: the back-fill runs once, on the first daily run after the update.
 - Groundwork for the application calendar (`docs/application-calendar-spec.md`); no new notifications yet.
 
 ## 0.1.0-beta.5 — Seedlings ready decides

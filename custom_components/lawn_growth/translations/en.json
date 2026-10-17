@@ -174,7 +174,40 @@
       "soil_moisture_used": {"name": "Soil moisture used"},
       "seedling_height_estimate": {"name": "Seedling height estimate"},
       "soil_temperature": {"name": "Soil temperature"},
-      "gdd": {"name": "Growing degree days"}
+      "gdd": {"name": "Growing degree days"},
+      "pre_emergent": {
+        "name": "Pre-emergent",
+        "state": {
+          "tentative": "Tentative",
+          "projected": "Projected",
+          "open": "Open",
+          "done": "Done",
+          "skipped": "Skipped",
+          "missed": "Missed"
+        }
+      },
+      "winterizer": {
+        "name": "Winterizer",
+        "state": {
+          "tentative": "Tentative",
+          "projected": "Projected",
+          "open": "Open",
+          "done": "Done",
+          "skipped": "Skipped",
+          "missed": "Missed"
+        }
+      },
+      "overseed_window": {
+        "name": "Overseed window",
+        "state": {
+          "tentative": "Tentative",
+          "projected": "Projected",
+          "open": "Open",
+          "done": "Done",
+          "skipped": "Skipped",
+          "missed": "Missed"
+        }
+      }
     },
     "binary_sensor": {
       "mow_due": {"name": "Mow due"},
@@ -189,10 +222,25 @@
       "seeding_date": {"name": "Seeding date"},
       "last_mow": {"name": "Last mow"},
       "last_fertilizer": {"name": "Last fertilizer"},
-      "last_pgr": {"name": "Last PGR"}
+      "last_pgr": {"name": "Last PGR"},
+      "last_winterizer": {"name": "Last winterizer"},
+      "last_pre_emergent": {"name": "Last pre-emergent"}
     },
     "number": {
       "log_mow_height": {"name": "Log mow height"}
+    },
+    "select": {
+      "pre_emergent_product": {
+        "name": "Pre-emergent product",
+        "state": {
+          "prodiamine": "Prodiamine",
+          "dithiopyr": "Dithiopyr",
+          "other_pre_emergent": "Other"
+        }
+      }
+    },
+    "calendar": {
+      "applications": {"name": "Applications"}
     }
   },
   "services": {
@@ -229,12 +277,21 @@
       }
     },
     "log_event": {
-      "name": "Log fertilizer or PGR",
-      "description": "Record a fertilizer or plant-growth-regulator application.",
+      "name": "Log an application",
+      "description": "Record a fertilizer, PGR, winterizer or herbicide application.",
       "fields": {
-        "device_id": {"name": "Mowing area", "description": "The mowing areas to apply this to."},
+        "device_id": {"name": "Mowing area", "description": "The mowing areas to apply this to. Leave empty for every area (a lawn-wide pre-emergent, for example)."},
         "kind": {"name": "Kind", "description": "What was applied."},
+        "product": {"name": "Product", "description": "The herbicide applied. Required for a herbicide; decides whether it counts as a pre-emergent and how long seeding is blocked."},
         "date": {"name": "Date", "description": "Day of application. Defaults to today."}
+      }
+    },
+    "skip_application": {
+      "name": "Skip an application",
+      "description": "Skip this season's pre-emergent, winterizer or fall overseed window. Logging the application later still marks it done.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "For winterizer and overseed: the mowing areas to skip. Leave empty for every area. Ignored for pre-emergent, which is lawn-wide."},
+        "kind": {"name": "Kind", "description": "Which application to skip."}
       }
     },
     "prep_overseed": {
@@ -260,7 +317,16 @@
     }
   },
   "selector": {
-    "event_kind": {"options": {"fert": "Fertilizer", "pgr": "Plant growth regulator"}},
+    "event_kind": {"options": {"fert": "Fertilizer", "pgr": "Plant growth regulator", "winterizer": "Winterizer", "herbicide": "Herbicide"}},
+    "product": {"options": {
+      "prodiamine": "Prodiamine (pre-emergent)",
+      "dithiopyr": "Dithiopyr (pre-emergent)",
+      "mesotrione": "Mesotrione (spot; safe at seeding)",
+      "triclopyr_ester": "Triclopyr ester (post-emergent)",
+      "other_pre_emergent": "Other pre-emergent",
+      "other_post_emergent": "Other post-emergent"
+    }},
+    "application_kind": {"options": {"pre_emergent": "Pre-emergent", "winterizer": "Winterizer", "overseed": "Fall overseed"}},
     "grass": {"options": {
       "tttf_kbg": "Tall fescue / tall fescue–bluegrass blend",
       "kbg": "Kentucky bluegrass",
@@ -282,6 +348,8 @@
     "no_mow": {"message": "No mow has been recorded for this mowing area yet."},
     "not_an_area": {"message": "Device {device_id} is not a Lawn Growth mowing area."},
     "no_overseed": {"message": "{area} uses a warm-season grass type; overseed prep is not available."},
-    "future_date": {"message": "The date can't be in the future."}
+    "future_date": {"message": "The date can't be in the future."},
+    "product_required": {"message": "Pick the product for a herbicide application."},
+    "product_herbicide_only": {"message": "A product is only used with kind herbicide."}
   }
 }

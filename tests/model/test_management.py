@@ -43,3 +43,10 @@ def test_events_combine_multiplicatively():
         (today - pgr.applied).days, T
     )
     assert management.management_factor([fert, pgr], today, T) == expected
+
+
+def test_winterizer_counts_as_fertilizer():
+    on, today = date(2026, 10, 1), date(2026, 10, 9)
+    fert = management.management_factor([ev("fert", on)], today, T)
+    assert fert == T.fert_peak_factor
+    assert management.management_factor([ev("winterizer", on)], today, T) == fert

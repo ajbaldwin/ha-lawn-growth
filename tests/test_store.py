@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 
 from custom_components.lawn_growth.model import session
+from custom_components.lawn_growth.model.applications import Application
 from custom_components.lawn_growth.model.management import ManagementEvent
 from custom_components.lawn_growth.model.state import AreaState
 from custom_components.lawn_growth.store import LawnStore
@@ -65,3 +66,21 @@ async def test_latest_event_date_ignores_events_past_retention(hass):
     store.events.append({"kind": "fert", "date": "2026-08-01", "areas": ["lawn"]})
     assert store.latest_event_date("lawn", "fert", date(2026, 9, 26)) is None
     assert store.latest_event_date("lawn", "fert", date(2026, 8, 20)) == date(2026, 8, 1)
+
+
+async def test_application_log_keeps_400_days_and_replaces_a_corrected_entry(hass):
+    store = LawnStore(hass, "abc")
+    await store.async_load(["lawn"])
+    today = date(2026, 9, 26)
+    store.add_application("pgr", date(2025, 8, 1), ["lawn"], today)     # > 400 days
+    store.add_application("fert", date(2025, 9, 1), ["lawn"], today)
+    store.add_application("seeding", date(2026, 9, 1), ["lawn"], today)
+    store.add_application("seeding", date(2026, 9, 3), ["lawn"], today,
+                          replaces=date(2026, 9, 1))
+    assert store.applications == [Application("fert", date(2025, 9, 1), ("lawn",)),
+                                  Application("seeding", date(2026, 9, 3), ("lawn",))]
+    assert store.logged_applications(date(2026, 10, 10)) == store.applications[1:]
+    await store.async_save()
+    again = LawnStore(hass, "abc")
+    await again.async_load(["lawn"])
+    assert again.applications == store.applications

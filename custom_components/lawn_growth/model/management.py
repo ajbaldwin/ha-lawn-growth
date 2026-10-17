@@ -7,7 +7,7 @@ from datetime import date
 
 @dataclass(frozen=True)
 class ManagementEvent:
-    kind: str          # "fert" | "pgr"
+    kind: str          # "fert" | "pgr" | "winterizer"
     applied: date
 
 
@@ -37,7 +37,7 @@ def management_factor(events, today: date, tun) -> float:
     factor = 1.0
     for e in events:
         days = (today - e.applied).days
-        if e.kind == "fert":
+        if e.kind in ("fert", "winterizer"):      # a winterizer is a fertilizer
             factor *= _fert_factor(days, tun)
         elif e.kind == "pgr":
             factor *= _pgr_factor(days, tun)

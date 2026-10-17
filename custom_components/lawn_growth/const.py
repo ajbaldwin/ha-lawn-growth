@@ -1,6 +1,7 @@
 """Constants for the Lawn Growth integration (no Home Assistant imports)."""
 DOMAIN = "lawn_growth"
 STORAGE_VERSION = 1
+STORAGE_MINOR_VERSION = 2      # 1.2: application log, windows
 
 # entry.options — lawn level
 CONF_WEATHER = "weather_entity"

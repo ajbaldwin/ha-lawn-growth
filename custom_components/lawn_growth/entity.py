@@ -1,4 +1,4 @@
-"""Base entity: one device per mowing area, explicit entity ids."""
+"""Base entities: one device per mowing area plus the lawn device; explicit entity ids."""
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -36,3 +36,19 @@ class LawnGrowthEntity(CoordinatorEntity[LawnGrowthCoordinator]):
     @property
     def available(self) -> bool:
         return super().available and self.result is not None
+
+
+class LawnEntity(CoordinatorEntity[LawnGrowthCoordinator]):
+    """A lawn-wide entity on the Lawn Growth device."""
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: LawnGrowthCoordinator, suffix: str, platform: str) -> None:
+        super().__init__(coordinator)
+        entry_id = coordinator.config_entry.entry_id
+        self._suffix = suffix
+        self._attr_translation_key = suffix
+        self._attr_unique_id = f"{entry_id}_{suffix}"
+        self.entity_id = f"{platform}.{DOMAIN}_{suffix}"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry_id)},
+                                            name="Lawn Growth", manufacturer="Lawn Growth",
+                                            model="Lawn")

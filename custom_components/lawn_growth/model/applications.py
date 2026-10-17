@@ -1,0 +1,113 @@
+"""The application log (400 days) and herbicide products. Pure Python.
+
+Separate from the 35-day growth-model events: those only feed the fertilizer and
+PGR curves, while this log is the history the application calendar, the seeding
+conflict check and the window state machines read.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, timedelta
+from typing import Optional
+
+LOG_KINDS = ("fert", "pgr", "winterizer", "herbicide", "seeding")
+
+
+@dataclass(frozen=True)
+class Product:
+    key: str
+    label: str
+    pre_emergent: bool          # a blanket pre-emergent: logging it closes the window
+    post_emergent: bool
+    block_field: str = ""       # Tunables field: days seeding is blocked after it
+
+
+# Seeding waits are label placeholders (spec "Open questions"); they live in Tunables.
+PRODUCTS = {p.key: p for p in (
+    Product("prodiamine", "Prodiamine", True, False, "prodiamine_seeding_block_days"),
+    Product("dithiopyr", "Dithiopyr", True, False, "dithiopyr_seeding_block_days"),
+    Product("mesotrione", "Mesotrione", False, True),
+    Product("triclopyr_ester", "Triclopyr ester", False, True,
+            "triclopyr_ester_seeding_block_days"),
+    Product("other_pre_emergent", "Other pre-emergent", True, False,
+            "other_pre_emergent_seeding_block_days"),
+    Product("other_post_emergent", "Other post-emergent", False, True,
+            "other_post_emergent_seeding_block_days"),
+)}
+PRE_EMERGENT_PRODUCTS = tuple(k for k, p in PRODUCTS.items() if p.pre_emergent)
+
+
+def product_label(key: str) -> str:
+    p = PRODUCTS.get(key)
+    return p.label if p else key
+
+
+def block_days(product: str, tun) -> int:
+    p = PRODUCTS.get(product)
+    return int(getattr(tun, p.block_field)) if p and p.block_field else 0
+
+
+@dataclass(frozen=True)
+class Application:
+    kind: str                   # LOG_KINDS
+    date: date
+    areas: tuple                # area keys
+    product: str = ""           # herbicide only
+
+    def to_dict(self) -> dict:
+        out = {"kind": self.kind, "date": self.date.isoformat(), "areas": list(self.areas)}
+        if self.product:
+            out["product"] = self.product
+        return out
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Application":
+        return cls(d["kind"], date.fromisoformat(d["date"]), tuple(d.get("areas", ())),
+                   d.get("product", ""))
+
+
+def prune(apps: list, today: date, retention_days: int) -> list:
+    cutoff = today - timedelta(days=retention_days)
+    return [a for a in apps if a.date >= cutoff]
+
+
+def is_pre_emergent(app: Application) -> bool:
+    return app.kind == "herbicide" and app.product in PRE_EMERGENT_PRODUCTS
+
+
+def for_area(apps, area: str, kinds=None) -> list:
+    return [a for a in apps if area in a.areas and (kinds is None or a.kind in kinds)]
+
+
+def latest(apps, area: str, kinds) -> Optional[date]:
+    dates = [a.date for a in for_area(apps, area, kinds)]
+    return max(dates) if dates else None
+
+
+@dataclass(frozen=True)
+class SeedingBlock:
+    product: str
+    applied: date
+    until: date                 # first day seeding is no longer blocked
+
+    def text(self) -> str:
+        return (f"{product_label(self.product)} applied {fmt_day(self.applied)} — "
+                f"seeding blocked until {fmt_day(self.until)}")
+
+
+def seeding_block(apps, area: str, day: date, tun) -> Optional[SeedingBlock]:
+    """The herbicide block covering `day` on this area: of the logged products whose
+    wait-before-seeding period includes the day, the one that ends last."""
+    best = None
+    for a in for_area(apps, area, ("herbicide",)):
+        days = block_days(a.product, tun)
+        if days <= 0:
+            continue
+        until = a.date + timedelta(days=days)
+        if a.date <= day < until and (best is None or until > best.until):
+            best = SeedingBlock(a.product, a.date, until)
+    return best
+
+
+def fmt_day(d: date) -> str:
+    return f"{d:%b} {d.day}"

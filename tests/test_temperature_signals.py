@@ -236,3 +236,16 @@ async def test_gdd_recounted_when_outdoor_sensor_added(hass, freezer, monkeypatc
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert len(calls["minmax"]) == 1
+
+
+async def test_gdd_keeps_counting_out_of_season(hass, freezer, monkeypatch):
+    """Daily runs accrue out of season too (only mowing advice changes), so growing
+    degree days count through winter."""
+    hass.states.async_set("input_boolean.mowing_season", "off")
+    entry, _, _ = await _setup_signals(
+        hass, freezer, monkeypatch, **{const.CONF_SEASON: "input_boolean.mowing_season"})
+    assert entry.runtime_data.data["lawn"].mode == "out_of_season"
+    freezer.move_to(datetime.fromisoformat(NOW) + timedelta(days=1))
+    await entry.runtime_data.async_run()
+    await hass.async_block_till_done()
+    assert float(hass.states.get(GDD).state) == pytest.approx(18.0)

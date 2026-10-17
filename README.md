@@ -60,15 +60,38 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Last fertilizer, Last PGR | set either to log an application on that date (each set adds one, it doesn't correct one); goes back to empty once the record ages past 35 days. Setting the date already shown does nothing |
 | Soil moisture used, Seedling height estimate | diagnostics |
 | Soil temperature | mean soil temperature of the last 5 days from the area's GeoDrops probes, counting only readings taken while the probe reports good quality; unknown while fewer than 3 of those days are complete (for example while the probes are out for winter). Attribute `source` is `geodrops` or `gdd` |
+| Winterizer, Overseed window | application window status (see [Application calendar](#application-calendar)). Overseed window exists for cool-season areas only |
+| Last winterizer | set it to log a winterizer on that date; it counts as fertilizer for the growth model |
 
-Lawn-wide: **Growing degree days** — base 50 °F, counted from Jan 1, reset each year.
+Lawn-wide: **Growing degree days** — base 50 °F, counted from Jan 1, reset each year. **Pre-emergent** (window status), **Last pre-emergent** (date picker; logs for every area), **Pre-emergent product** (the product Last pre-emergent logs) and the **Applications** calendar.
 
 Buttons per area: **Log mow** (one tap for today, at the area's **Log mow height**) and **Seedlings ready**. **Log mow height** defaults to the last cut height; set it before logging a mow at a different height. The **Last mow** date picker uses it too. Lawn-wide: **Evaluate now**. Log seedings, fertilizer and PGR with their date entities.
 
 ## Services
 
 All take a `device_id` field (one or more mowing-area devices) and accept an optional `date` (today or earlier) where it makes sense:
-`lawn_growth.log_mow` (optional `height_in`), `lawn_growth.correct_last_mow`, `lawn_growth.log_seeding`, `lawn_growth.seedlings_ready`, `lawn_growth.log_event` (`kind`: `fert` or `pgr`), `lawn_growth.prep_overseed` (`seed_date`, optional `target_in`, `buffer_days`), `lawn_growth.cancel_overseed`, and `lawn_growth.evaluate_now`.
+`lawn_growth.log_mow` (optional `height_in`), `lawn_growth.correct_last_mow`, `lawn_growth.log_seeding`, `lawn_growth.seedlings_ready`, `lawn_growth.log_event`, `lawn_growth.skip_application`, `lawn_growth.prep_overseed` (`seed_date`, optional `target_in`, `buffer_days`), `lawn_growth.cancel_overseed`, and `lawn_growth.evaluate_now`.
+
+- `lawn_growth.log_event`: `kind` is `fert`, `pgr`, `winterizer` or `herbicide`. A herbicide needs a `product`: `prodiamine`, `dithiopyr` or `other_pre_emergent` (pre-emergents), `mesotrione`, `triclopyr_ester` or `other_post_emergent`. Leave `device_id` empty to log for every area, as for a lawn-wide pre-emergent.
+- `lawn_growth.skip_application`: `kind` is `pre_emergent` (lawn-wide), `winterizer` or `overseed` (for the given areas, or every area). Skips this season's window; logging the application later still marks it done.
+
+## Application calendar
+
+Lawn Growth times pre-emergent, winterizer and fall overseeding from the lawn's own conditions, notifies you when each window opens, and keeps them on its **Applications** calendar together with what you've logged. It's advisory: it never applies anything, and nothing here changes Mowing allowed.
+
+Each window goes **tentative** (no signal yet; shown on a typical date) → **projected** (the trigger falls inside the forecast) → **open** (notification sent) → **done** when you log it, **skipped** with `lawn_growth.skip_application`, or **missed** when it closes with nothing logged.
+
+| Window | Opens | Closes (missed) | Typical date |
+|---|---|---|---|
+| Pre-emergent (lawn-wide) | soil 50 °F, or 125 growing degree days without probes | 14 days after crabgrass germination is expected (55 °F / 200 GDD) | Apr 10 |
+| Winterizer (per area) | growth has wound down (fall wind-down, at least 10 days since the last mow with none due), 28 days since the last fertilizer, and the grass is still green (not dormant; soil at least 40 °F where probes are in) | the area goes dormant, or soil under 40 °F for 3 days | Nov 5 |
+| Fall overseed (per area) | from August, soil below 70 °F (without probes: a 7-day air mean at or below 72 °F and falling); best at 60–70 °F | soil below 55 °F, or a 7-day air mean below 50 °F | Aug 25 |
+
+Soil here is the 5-day Soil temperature. The pre-emergent follows the warmest area's probes, or growing degree days for areas without them, whichever triggers first.
+
+- **Notifications** (to the Notify target, once per window per season): pre-emergent heads-up (47 °F and rising / 75 GDD — time to buy product), apply now, late warning (53 °F / 175 GDD), germination expected (suggests dithiopyr, which still controls very young crabgrass) and missed; winterizer open; overseed open and closing in about a week. Areas crossing together share one message. Alerts set from air temperatures say so.
+- **Products and seeding.** Logging a pre-emergent makes the window done. Prodiamine blocks seeding for 16 weeks, dithiopyr 12, triclopyr ester 4; mesotrione never blocks. These are placeholder defaults: check the label of the product you use. A Prepare for overseeding seed date inside a block, or a blocking product on an area that's establishing, sends a warning. Seven weeks after the first pre-emergent, a reminder suggests a second (split) application of dithiopyr, and the Pre-emergent product select suggests dithiopyr.
+- **The calendar** shows the windows (projections move with the forecast), a "Start overseed prep" milestone, a planned overseed seed date in place of its window, and logged seedings, fertilizer, PGR, winterizer and herbicides ("Prodiamine — whole lawn") for 400 days. Same-day events across areas merge. Mows aren't shown.
 
 ## How it works
 

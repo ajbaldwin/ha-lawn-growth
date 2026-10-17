@@ -4,8 +4,11 @@ from pathlib import Path
 
 from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
 from custom_components.lawn_growth.button import AREA_BUTTONS
-from custom_components.lawn_growth.date import DATE_KEYS
+from custom_components.lawn_growth.date import DATE_KEYS, LAWN_DATE_KEYS
+from custom_components.lawn_growth.model.applications import PRE_EMERGENT_PRODUCTS
 from custom_components.lawn_growth.model.modes import MODES
+from custom_components.lawn_growth.model.windows import STATUSES
+from custom_components.lawn_growth.select import SELECT_KEYS
 from custom_components.lawn_growth.sensor import EXTRA_SENSOR_KEYS, SENSOR_SPECS
 
 ROOT = Path(__file__).parent.parent / "custom_components" / "lawn_growth"
@@ -25,7 +28,9 @@ def test_every_entity_has_a_name_and_no_extras():
     assert set(ent["sensor"]) == {s.key for s in SENSOR_SPECS} | set(EXTRA_SENSOR_KEYS)
     assert set(ent["binary_sensor"]) == set(BINARY_KEYS)
     assert set(ent["button"]) == set(AREA_BUTTONS) | {"evaluate_now"}
-    assert set(ent["date"]) == set(DATE_KEYS)
+    assert set(ent["date"]) == set(DATE_KEYS) | set(LAWN_DATE_KEYS)
+    assert set(ent["select"]) == set(SELECT_KEYS)
+    assert set(ent["calendar"]) == {"applications"}
     for platform in ent.values():
         for entry in platform.values():
             assert entry["name"]
@@ -33,6 +38,13 @@ def test_every_entity_has_a_name_and_no_extras():
 
 def test_mode_states_translated():
     assert set(_load("strings.json")["entity"]["sensor"]["mode"]["state"]) == set(MODES)
+
+
+def test_window_and_product_states_translated():
+    ent = _load("strings.json")["entity"]
+    for key in ("pre_emergent", "winterizer", "overseed_window"):
+        assert set(ent["sensor"][key]["state"]) == set(STATUSES), key
+    assert set(ent["select"]["pre_emergent_product"]["state"]) == set(PRE_EMERGENT_PRODUCTS)
 
 
 def test_icons_reference_real_entities():

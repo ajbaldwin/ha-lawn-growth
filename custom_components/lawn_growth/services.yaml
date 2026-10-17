@@ -62,7 +62,7 @@ seedlings_ready:
 log_event:
   fields:
     device_id:
-      required: true
+      required: false
       selector:
         device:
           multiple: true
@@ -76,10 +76,42 @@ log_event:
           options:
             - fert
             - pgr
+            - winterizer
+            - herbicide
           translation_key: event_kind
+    product:
+      selector:
+        select:
+          options:
+            - prodiamine
+            - dithiopyr
+            - mesotrione
+            - triclopyr_ester
+            - other_pre_emergent
+            - other_post_emergent
+          translation_key: product
     date:
       selector:
         date:
+skip_application:
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    kind:
+      required: true
+      selector:
+        select:
+          options:
+            - pre_emergent
+            - winterizer
+            - overseed
+          translation_key: application_kind
 prep_overseed:
   fields:
     device_id:

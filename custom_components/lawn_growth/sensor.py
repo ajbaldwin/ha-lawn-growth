@@ -1,4 +1,4 @@
-"""Per-area sensors, plus the lawn-wide growing degree days."""
+"""Per-area sensors, plus the lawn-wide growing degree days and pre-emergent window."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,14 +8,12 @@ from typing import Any, Callable
 from homeassistant.components.sensor import (
     SensorDeviceClass, SensorEntity, SensorStateClass)
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfLength, UnitOfTemperature
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH, DOMAIN
-from .entity import LawnGrowthEntity
+from .const import AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH
+from .entity import LawnEntity, LawnGrowthEntity
+from .model import appcalendar, applications, soiltemp, windows
 from .model import gdd as gdd_model
-from .model import soiltemp
 from .model.modes import MODES
 
 
@@ -85,7 +83,8 @@ SENSOR_SPECS = (
 
 
 # Sensors outside SENSOR_SPECS (their values don't come from the area result).
-EXTRA_SENSOR_KEYS = ("soil_temperature", "gdd")
+EXTRA_SENSOR_KEYS = ("soil_temperature", "gdd", "pre_emergent", "winterizer",
+                     "overseed_window")
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -94,7 +93,11 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
         *(AreaSensor(coordinator, key, spec)
           for key in coordinator.areas for spec in SENSOR_SPECS),
         *(SoilTemperatureSensor(coordinator, key) for key in coordinator.areas),
+        *(AreaWindowSensor(coordinator, key, "winterizer") for key in coordinator.areas),
+        *(AreaWindowSensor(coordinator, key, "overseed")
+          for key, cfg in coordinator.areas.items() if cfg.overseed_target_in is not None),
         GddSensor(coordinator),
+        PreEmergentSensor(coordinator),
     ])
 
 
@@ -155,22 +158,14 @@ class SoilTemperatureSensor(LawnGrowthEntity, SensorEntity):
                 "yesterday_coverage": last.get("coverage")}
 
 
-class GddSensor(CoordinatorEntity, SensorEntity):
+class GddSensor(LawnEntity, SensorEntity):
     """Growing degree days (base 50 °F) since the season start, lawn-wide."""
-    _attr_has_entity_name = True
-    _attr_translation_key = "gdd"
     _attr_native_unit_of_measurement = "GDD"
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_suggested_display_precision = 0
 
     def __init__(self, coordinator) -> None:
-        super().__init__(coordinator)
-        entry_id = coordinator.config_entry.entry_id
-        self._attr_unique_id = f"{entry_id}_gdd"
-        self.entity_id = f"sensor.{DOMAIN}_gdd"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry_id)},
-                                            name="Lawn Growth", manufacturer="Lawn Growth",
-                                            model="Lawn")
+        super().__init__(coordinator, "gdd", "sensor")
 
     @property
     def native_value(self):
@@ -186,3 +181,105 @@ class GddSensor(CoordinatorEntity, SensorEntity):
                 "last_day": state.last_day.isoformat() if state.last_day else None,
                 "source": state.source or None,
                 "last_season_total": state.last_season_total}
+
+
+def _iso(value):
+    return value.isoformat() if value else None
+
+
+def _window_attrs(w, names: dict) -> dict:
+    """Attributes every window status sensor shares."""
+    return {"season": w.season,
+            "open_date": _iso(w.reached_on("open")),
+            "close_date": _iso(w.closed or w.expected_close),
+            "projected_date": _iso(w.projected),
+            "applied_date": _iso(w.done),
+            "skipped_date": _iso(w.skipped),
+            "trigger_value": w.value,
+            "source": w.source or None,
+            "set_by": names.get(w.set_by),
+            "updated": _iso(w.updated)}
+
+
+class _WindowSensor:
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = windows.STATUSES
+    _kind = ""
+    _window_area = windows.LAWN
+
+    @property
+    def _window(self):
+        return self.coordinator.window(self._kind, self._window_area)
+
+    @property
+    def native_value(self):
+        w = self._window
+        return w.status if w else None
+
+    def _names(self) -> dict:
+        return {k: c.name for k, c in self.coordinator.areas.items()}
+
+
+class PreEmergentSensor(_WindowSensor, LawnEntity, SensorEntity):
+    """The lawn-wide pre-emergent window: warmest area's soil temperature, or
+    growing degree days where there are no probes."""
+    _kind = "pre_emergent"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "pre_emergent", "sensor")
+
+    @property
+    def extra_state_attributes(self):
+        w = self._window
+        if w is None:
+            return None
+        c, tun = self.coordinator, self.coordinator.tunables
+        today = dt_util.now().date()
+        apps = c.applications(today)
+        stages = [s for s in windows.PRE_STAGES if s in w.reached]
+        blocks = [b for b in (applications.seeding_block(apps, k, today, tun)
+                              for k in c.areas) if b]
+        return {**_window_attrs(w, self._names()),
+                "stage": stages[-1] if stages else None,
+                "stages": {s: w.reached[s]["date"] for s in stages},
+                "trigger_unit": {"geodrops": "°F", "gdd": "GDD"}.get(w.source),
+                "product": w.product or None,
+                "seeding_blocked_until": _iso(max((b.until for b in blocks), default=None)),
+                "split_reminder_date": _iso(windows.split_reminder_date(w, apps, tun)),
+                "suggested_product": windows.suggested_pre_product(w)}
+
+
+class AreaWindowSensor(_WindowSensor, LawnGrowthEntity, SensorEntity):
+    """A mowing area's winterizer or fall overseed window."""
+
+    def __init__(self, coordinator, area_key: str, kind: str) -> None:
+        super().__init__(coordinator, area_key,
+                         "overseed_window" if kind == "overseed" else kind, "sensor")
+        self._kind = kind
+        self._window_area = area_key
+
+    @property
+    def extra_state_attributes(self):
+        w = self._window
+        if w is None:
+            return None
+        c, tun, key = self.coordinator, self.coordinator.tunables, self._area_key
+        today = dt_util.now().date()
+        apps = c.applications(today)
+        attrs = _window_attrs(w, self._names())
+        if self._kind == "winterizer":
+            signals = c.last_signals.get(key)
+            attrs["conditions"] = (windows.winterizer_conditions(w, today, signals, apps, tun)
+                                   if signals else None)
+            attrs["last_fertilizer"] = _iso(windows.last_fertilizer(apps, key))
+            return attrs
+        cal = c.area_calendar.get(key)
+        planned = cal.planned_seed if cal else None
+        block = applications.seeding_block(apps, key, planned or today, tun)
+        attrs.update(
+            ideal=appcalendar.overseed_ideal_now(w, tun),
+            earliest_seed_date=_iso(cal.earliest_seed) if cal else None,
+            planned_seed_date=_iso(planned),
+            seeding_blocked_until=_iso(block.until) if block else None,
+            seeding_block=block.text() if block else None)
+        return attrs

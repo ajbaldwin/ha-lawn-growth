@@ -171,6 +171,7 @@
           "dormant": "Dormant",
           "heat_hold": "Heat hold",
           "overseed_prep": "Overseed prep",
+          "spray_hold": "Hold after spraying",
           "normal": "Normal"
         }
       },
@@ -213,11 +214,23 @@
           "skipped": "Skipped",
           "missed": "Missed"
         }
+      },
+      "post_emergent": {
+        "name": "Post-emergent",
+        "state": {
+          "tentative": "Tentative",
+          "projected": "Projected",
+          "open": "Open",
+          "done": "Done",
+          "skipped": "Skipped",
+          "closed": "Closed"
+        }
       }
     },
     "binary_sensor": {
       "mow_due": {"name": "Mow due"},
-      "mowing_allowed": {"name": "Mowing allowed"}
+      "mowing_allowed": {"name": "Mowing allowed"},
+      "good_spray_day": {"name": "Good spray day"}
     },
     "button": {
       "log_mow": {"name": "Log mow"},
@@ -230,7 +243,8 @@
       "last_fertilizer": {"name": "Last fertilizer"},
       "last_pgr": {"name": "Last PGR"},
       "last_winterizer": {"name": "Last winterizer"},
-      "last_pre_emergent": {"name": "Last pre-emergent"}
+      "last_pre_emergent": {"name": "Last pre-emergent"},
+      "last_post_emergent": {"name": "Last post-emergent"}
     },
     "number": {
       "log_mow_height": {"name": "Log mow height"}
@@ -242,6 +256,14 @@
           "prodiamine": "Prodiamine",
           "dithiopyr": "Dithiopyr",
           "other_pre_emergent": "Other"
+        }
+      },
+      "post_emergent_product": {
+        "name": "Post-emergent product",
+        "state": {
+          "mesotrione": "Mesotrione",
+          "triclopyr_ester": "Triclopyr ester",
+          "other_post_emergent": "Other"
         }
       }
     },
@@ -294,10 +316,18 @@
     },
     "skip_application": {
       "name": "Skip an application",
-      "description": "Skip this season's pre-emergent, winterizer or fall overseed window. Logging the application later still marks it done.",
+      "description": "Skip this season's pre-emergent, winterizer or fall overseed window, or an area's open post-emergent window (else its next one). Logging the application later still marks it done.",
       "fields": {
-        "device_id": {"name": "Mowing area", "description": "For winterizer and overseed: the mowing areas to skip. Leave empty for every area. Ignored for pre-emergent, which is lawn-wide."},
+        "device_id": {"name": "Mowing area", "description": "For winterizer, overseed and post-emergent: the mowing areas to skip. Leave empty for every area. Ignored for pre-emergent, which is lawn-wide."},
         "kind": {"name": "Kind", "description": "Which application to skip."}
+      }
+    },
+    "flag_weeds": {
+      "name": "Flag weeds",
+      "description": "Weeds showed up outside a post-emergent window: open the matching window for these areas today, so the spray-day check and its notices start.",
+      "fields": {
+        "device_id": {"name": "Mowing area", "description": "The mowing areas with weeds."},
+        "target": {"name": "Weeds", "description": "Broadleaf weeds open the spring broadleaf window (through its last day, Jun 30), else the fall one. Crabgrass opens the young crabgrass window."}
       }
     },
     "prep_overseed": {
@@ -332,7 +362,8 @@
       "other_pre_emergent": "Other pre-emergent",
       "other_post_emergent": "Other post-emergent"
     }},
-    "application_kind": {"options": {"pre_emergent": "Pre-emergent", "winterizer": "Winterizer", "overseed": "Fall overseed"}},
+    "application_kind": {"options": {"pre_emergent": "Pre-emergent", "winterizer": "Winterizer", "overseed": "Fall overseed", "post_emergent": "Post-emergent"}},
+    "weed_target": {"options": {"broadleaf": "Broadleaf weeds", "crabgrass": "Crabgrass"}},
     "grass": {"options": {
       "tttf_kbg": "Tall fescue / tall fescue–bluegrass blend",
       "kbg": "Kentucky bluegrass",
@@ -362,6 +393,7 @@
     "no_overseed": {"message": "{area} uses a warm-season grass type; overseed prep is not available."},
     "future_date": {"message": "The date can't be in the future."},
     "product_required": {"message": "Pick the product for a herbicide application."},
-    "product_herbicide_only": {"message": "A product is only used with kind herbicide."}
+    "product_herbicide_only": {"message": "A product is only used with kind herbicide."},
+    "window_ended": {"message": "{area}: that post-emergent window already closed this season."}
   }
 }

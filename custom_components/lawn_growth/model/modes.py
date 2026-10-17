@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 MODES = ["out_of_season", "establishment", "first_mow_ready", "dormant", "heat_hold",
-         "overseed_prep", "normal"]
+         "overseed_prep", "spray_hold", "normal"]
 
 
 def resolve_mode(in_season: bool, establishment: bool, first_mow_ready: bool,
                  dormant: bool, heat_hold: bool) -> str:
-    """`overseed_prep` is an overlay applied later by evaluate, never returned here."""
+    """`overseed_prep` and `spray_hold` are overlays applied later by evaluate, never
+    returned here."""
     if not in_season:
         return "out_of_season"
     if establishment:

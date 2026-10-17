@@ -108,10 +108,13 @@ async def test_daily_run_notifies_once_and_startup_does_not(hass, freezer, hass_
     register_weather(hass, daily_rows=daily(TODAY.replace(day=27), FLAT_68))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
-    assert len(calls) == 1 and "mow due" in calls[0].data["message"]
+    # (the fall broadleaf window opens too, with a "mow first" spray notice)
+    due = [c for c in calls if c.data["message"].startswith("Lawn: mow due")]
+    assert len(due) == 1
+    sent = len(calls)
 
     await entry.runtime_data.async_run(send_notifications=True)
-    assert len(calls) == 1                                   # once per due episode
+    assert len(calls) == sent                                # once per due episode
 
 
 async def test_coordinator_mutations(hass, freezer):

@@ -5,7 +5,9 @@ from pathlib import Path
 from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
 from custom_components.lawn_growth.button import AREA_BUTTONS
 from custom_components.lawn_growth.date import DATE_KEYS, LAWN_DATE_KEYS
-from custom_components.lawn_growth.model.applications import PRE_EMERGENT_PRODUCTS
+from custom_components.lawn_growth.model.applications import (
+    POST_EMERGENT_PRODUCTS, PRE_EMERGENT_PRODUCTS)
+from custom_components.lawn_growth.model import postemergent
 from custom_components.lawn_growth.model.modes import MODES
 from custom_components.lawn_growth.model.windows import STATUSES
 from custom_components.lawn_growth.select import SELECT_KEYS
@@ -45,6 +47,10 @@ def test_window_and_product_states_translated():
     for key in ("pre_emergent", "winterizer", "overseed_window"):
         assert set(ent["sensor"][key]["state"]) == set(STATUSES), key
     assert set(ent["select"]["pre_emergent_product"]["state"]) == set(PRE_EMERGENT_PRODUCTS)
+    assert set(ent["sensor"]["post_emergent"]["state"]) == set(postemergent.STATUSES)
+    assert set(ent["select"]["post_emergent_product"]["state"]) == set(POST_EMERGENT_PRODUCTS)
+    selector = _load("strings.json")["selector"]
+    assert set(selector["weed_target"]["options"]) == set(postemergent.TARGETS)
 
 
 def test_icons_reference_real_entities():

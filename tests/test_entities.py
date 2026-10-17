@@ -34,6 +34,7 @@ async def test_entity_ids_and_names(hass, freezer):
                    | {f"number.{p}_log_mow_height"}
                    | {f"sensor.{p}_soil_temperature", "sensor.lawn_growth_gdd"}
                    | {f"sensor.{p}_winterizer", f"sensor.{p}_overseed_window",
+                      f"sensor.{p}_post_emergent", f"select.{p}_post_emergent_product",
                       "sensor.lawn_growth_pre_emergent", "date.lawn_growth_last_pre_emergent",
                       "select.lawn_growth_pre_emergent_product",
                       "calendar.lawn_growth_applications"})

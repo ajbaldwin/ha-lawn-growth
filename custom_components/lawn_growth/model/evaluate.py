@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
+from .applications import fmt_day
 from . import (catchup, establishment, forecast, growth, heat, management, modes,
                overseed, phases, season, water)
 from .state import AreaState, DayRecord
@@ -30,6 +31,7 @@ class DayInputs:
     moisture_source: str            # "sensors" | "fallback"
     events: list                    # [management.ManagementEvent]
     moisture_sensors_used: tuple = ()
+    no_mow_until: Optional[date] = None   # held after a post-emergent (exclusive)
 
 
 @dataclass(frozen=True)
@@ -205,6 +207,17 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
             overseed_status = "first mow ready"
 
     allowed = mode != "establishment"
+    reason = "" if allowed else "establishing seedlings"
+    # After a post-emergent the area isn't mowed for a few days (D15). The hold only
+    # adds to an establishment hold (only Seedlings ready ends that one).
+    if inp.no_mow_until is not None and today < inp.no_mow_until:
+        spray = f"post-emergent sprayed: don't mow until {fmt_day(inp.no_mow_until)}"
+        reason = f"{reason}; {spray}" if reason else spray
+        allowed = False
+        if mode not in ("out_of_season", "establishment"):
+            mode, mow_due = "spray_hold", False
+            if dud is not None:
+                dud = max(dud, (inp.no_mow_until - today).days)
     result = AreaResult(
         mode=mode, phase=phase, gp=gp, growth_today_mm=growth_today,
         accumulated_mm=s.accumulated_mm, budget_mm=budget, pct_budget=pct,
@@ -212,7 +225,7 @@ def evaluate_area(cfg, tun, state: AreaState, inp: DayInputs, *, accrue: bool):
         days_until_due_display=forecast.days_until_due_label(dud, tun.forecast_horizon_days),
         last_cut_in=last_cut, recommended_cut_in=round(rec, 2), next_pass_in=round(nxt, 2),
         cut_note=note, mowing_allowed=allowed,
-        mowing_allowed_reason="" if allowed else "establishing seedlings",
+        mowing_allowed_reason=reason,
         seedling_height_in=seedling_in, first_mow_target_in=first_target,
         moisture=inp.moisture, moisture_source=inp.moisture_source,
         moisture_sensors_used=tuple(inp.moisture_sensors_used),

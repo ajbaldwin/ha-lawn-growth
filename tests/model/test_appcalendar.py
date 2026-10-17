@@ -110,7 +110,7 @@ def test_logged_history():
         "Fertilizer — whole lawn", "Mesotrione spot — Back", "Seeding — Back",
         "Winterizer — whole lawn"]
     assert "mesotrione at seeding" in events[2].description
-    assert events[1].description == ""
+    assert events[1].description == "Don't mow until Sep 7."
 
 
 def test_mows_only_when_enabled():
@@ -163,3 +163,27 @@ def test_tentative_dates_per_kind():
         ("Overseed (estimated) — Back", date(2026, 8, 25)),
         ("Winterizer (estimated) — Back", date(2026, 11, 5))]
     assert all(e.end == e.start + timedelta(days=1) for e in events)
+
+
+# --- post-emergent -----------------------------------------------------------------
+
+def test_post_emergent_windows_and_follow_ups_on_the_calendar():
+    tentative = Window("fall_broadleaf", 2027, "front")
+    opened = Window("spring_broadleaf", 2027, "back", status="open",
+                    expected_close=date(2027, 6, 30), source="geodrops", value=55.4,
+                    set_by="back", reached=_open(date(2027, 5, 2), "geodrops", 55.4, "back"))
+    sprayed = Application("herbicide", date(2027, 5, 4), ("back",), "triclopyr_ester")
+    events = _events([tentative, opened], [sprayed], today=date(2027, 5, 5))
+    by_key = {e.key: e for e in events}
+    est = by_key["lawn_growth-fall_broadleaf-2027-front-window"]
+    assert (est.summary, est.start, est.firm) == (
+        "Post-emergent (estimated, fall broadleaf) — Front & Side", date(2027, 9, 20), False)
+    win = by_key["lawn_growth-spring_broadleaf-2027-back-open"]
+    assert (win.summary, win.start, win.end, win.firm) == (
+        "Post-emergent window open (spring broadleaf) — Back", date(2027, 5, 2),
+        date(2027, 7, 1), True)
+    log = by_key["lawn_growth-triclopyr_ester-2027-back-applied-2027-05-04"]
+    assert log.description == "Seeding blocked until Jun 1. Don't mow until May 6."
+    fu = by_key["lawn_growth-triclopyr_ester-2027-back-followup-2027-05-04"]
+    assert (fu.summary, fu.start, fu.firm) == (
+        "Post-emergent follow-up — Back", date(2027, 5, 25), True)

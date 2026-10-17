@@ -53,8 +53,9 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Growth budget used | % of a third of the last cut height |
 | Recommended cut height | the season's target; attribute `next_pass_in` is the height for the next mow |
 | Last cut height | the height recorded with the most recent mow |
-| Mode | normal, heat hold, dormant, out of season, establishing, first mow ready, overseed prep |
-| Mow due / Mowing allowed | binary sensors for automations |
+| Mode | normal, heat hold, dormant, out of season, establishing, first mow ready, overseed prep, hold after spraying |
+| Mow due / Mowing allowed | binary sensors for automations; Mowing allowed has a `reason` attribute while it's off |
+| Good spray day | on when today passes the spray-day check inside an open post-emergent window (see [Post-emergent](#post-emergent)); attributes list the failed checks and the ones the forecast couldn't answer |
 | Growth today, Accumulated growth, Growth potential, Overseed status | details — Overseed status reads "establishing", "seedlings look ready", then "first mow ready" while a seeding grows in |
 | Seeding date | set it to log or correct a seeding — this one replaces the stored date; empty when none is in progress |
 | Last mow | set it to log a mow on that date (each set adds a mow, it doesn't correct one); a date older than the one already stored is kept as history only, so the entity keeps showing the newer date. Setting the date already shown does nothing |
@@ -63,6 +64,8 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Soil temperature | mean soil temperature of the last 5 days from the area's GeoDrops probes, counting only readings taken while the probe reports good quality; unknown while fewer than 3 of those days are complete (for example while the probes are out for winter). Attribute `source` is `geodrops` or `gdd` |
 | Winterizer, Overseed window | application window status (see [Application calendar](#application-calendar)). Overseed window exists for cool-season areas only |
 | Last winterizer | set it to log a winterizer on that date; it counts as fertilizer for the growth model |
+| Post-emergent | the area's post-emergent window status: tentative, projected, open, done, skipped or closed. Attributes: which window (`spring_broadleaf`, `fall_broadleaf`, `young_crabgrass`), today's and tomorrow's spray-day verdict, the last application, `dont_mow_until` and the follow-up date |
+| Last post-emergent, Post-emergent product | set the date to log a post-emergent on this area with the selected product (default mesotrione). The product also sets the spray-day check's heat limit and seedling rule |
 
 Lawn-wide: **Growing degree days** — base 50 °F, counted from Jan 1, reset each year. **Pre-emergent** (window status), **Last pre-emergent** (date picker; logs for every area), **Pre-emergent product** (the product Last pre-emergent logs) and the **Applications** calendar.
 
@@ -71,14 +74,15 @@ Buttons per area: **Log mow** (one tap for today, at the area's **Log mow height
 ## Services
 
 All take a `device_id` field (one or more mowing-area devices) and accept an optional `date` (today or earlier) where it makes sense:
-`lawn_growth.log_mow` (optional `height_in`), `lawn_growth.correct_last_mow`, `lawn_growth.log_seeding`, `lawn_growth.seedlings_ready`, `lawn_growth.log_event`, `lawn_growth.skip_application`, `lawn_growth.prep_overseed` (`seed_date`, optional `target_in`, `buffer_days`), `lawn_growth.cancel_overseed`, and `lawn_growth.evaluate_now`.
+`lawn_growth.log_mow` (optional `height_in`), `lawn_growth.correct_last_mow`, `lawn_growth.log_seeding`, `lawn_growth.seedlings_ready`, `lawn_growth.log_event`, `lawn_growth.skip_application`, `lawn_growth.flag_weeds`, `lawn_growth.prep_overseed` (`seed_date`, optional `target_in`, `buffer_days`), `lawn_growth.cancel_overseed`, and `lawn_growth.evaluate_now`.
 
 - `lawn_growth.log_event`: `kind` is `fert`, `pgr`, `winterizer` or `herbicide`. A herbicide needs a `product`: `prodiamine`, `dithiopyr` or `other_pre_emergent` (pre-emergents), `mesotrione`, `triclopyr_ester` or `other_post_emergent`. Leave `device_id` empty to log for every area, as for a lawn-wide pre-emergent.
-- `lawn_growth.skip_application`: `kind` is `pre_emergent` (lawn-wide), `winterizer` or `overseed` (for the given areas, or every area). Skips this season's window; logging the application later still marks it done.
+- `lawn_growth.skip_application`: `kind` is `pre_emergent` (lawn-wide), `winterizer`, `overseed` or `post_emergent` (for the given areas, or every area). Skips this season's window; logging the application later still marks it done. For post-emergent it skips the area's open windows, or else the next one to open.
+- `lawn_growth.flag_weeds`: `target` is `broadleaf` or `crabgrass`. Weeds showed up outside a post-emergent window: opens the matching window for those areas today (broadleaf: the spring window through Jun 30, else the fall one). A window that already closed this season can't be reopened.
 
 ## Application calendar
 
-Lawn Growth times pre-emergent, winterizer and fall overseeding from the lawn's own conditions, notifies you when each window opens, and keeps them on its **Applications** calendar together with what you've logged. It's advisory: it never applies anything, and nothing here changes Mowing allowed.
+Lawn Growth times pre-emergent, post-emergent, winterizer and fall overseeding from the lawn's own conditions, notifies you when each window opens, and keeps them on its **Applications** calendar together with what you've logged. It's advisory: it never applies anything. The one thing that touches the mower is the short Mowing allowed hold after a post-emergent spray.
 
 Each window goes **tentative** (no signal yet; shown on a typical date) → **projected** (the trigger falls inside the forecast) → **open** (notification sent) → **done** when you log it, **skipped** with `lawn_growth.skip_application`, or **missed** when it closes with nothing logged.
 
@@ -92,14 +96,47 @@ Soil here is the 5-day Soil temperature. The pre-emergent follows the warmest ar
 
 - **Notifications** (to the Notify target, once per window per season): pre-emergent heads-up (47 °F and rising / 75 GDD — time to buy product), apply now, late warning (53 °F / 175 GDD), germination expected (suggests dithiopyr, which still controls very young crabgrass) and missed; winterizer open; overseed open and closing in about a week. Areas crossing together share one message. Alerts set from air temperatures say so.
 - **Products and seeding.** Logging a pre-emergent makes the window done. Prodiamine blocks seeding for 16 weeks, dithiopyr 12, triclopyr ester 4; mesotrione never blocks. These are placeholder defaults: check the label of the product you use. A Prepare for overseeding seed date inside a block, or a blocking product on an area that's establishing, sends a warning. Seven weeks after the first pre-emergent, a reminder suggests a second (split) application of dithiopyr, and the Pre-emergent product select suggests dithiopyr.
-- **The calendar** shows the windows (projections move with the forecast), a "Start overseed prep" milestone, a planned overseed seed date in place of its window, and logged seedings, fertilizer, PGR, winterizer and herbicides ("Prodiamine — whole lawn") for 400 days. Same-day events across areas merge. Mows aren't shown.
+- **The calendar** shows the windows (projections move with the forecast), a "Start overseed prep" milestone, a planned overseed seed date in place of its window, post-emergent follow-ups, and logged seedings, fertilizer, PGR, winterizer and herbicides ("Prodiamine — whole lawn") for 400 days. Same-day events across areas merge. Mows aren't shown.
+
+### Post-emergent
+
+Post-emergent goes on as spot or area treatments, so each mowing area has its own windows, and Lawn Growth checks each day inside an open window whether today and tomorrow are good days to spray.
+
+| Window | Opens | Closes | Typical date |
+|---|---|---|---|
+| Spring broadleaf | soil 55 °F, or 250 growing degree days without probes | forecast highs of 85 °F or more on 3 of the next 5 days, or after Jun 30 | May 10 |
+| Fall broadleaf (the most effective: weeds are moving sugars to their roots) | from Aug 15, a 7-day air mean at or below 70 °F | the area goes dormant, or a 7-day air mean below 45 °F | Sep 20 |
+| Young crabgrass | 14 days after crabgrass germination is expected, only when the pre-emergent was missed, skipped or went down after germination | 6 weeks later, as crabgrass starts tillering | — |
+
+A window stays **open** after you spray, since weeds often need a follow-up. When it closes it reads **done** if you logged a post-emergent in it, or **closed** if you didn't (no weeds isn't a miss). Use `lawn_growth.flag_weeds` when weeds show up outside a window.
+
+**Spray-day check.** A day is good when all of these pass:
+
+1. **Temperature:** the forecast high is 60–85 °F. Triclopyr ester turns volatile in heat, so its limit is 80 °F, checked against the next day's high too.
+2. **Rain-free:** under a 30 % chance of rain for 24 hours from 8 am, from the hourly forecast, else the daily one.
+3. **Wind:** under 10 mph from 6 am to noon, from the hourly forecast.
+4. **Mowing:** no mow in the last 2 days and none due in the next 2. When a mow is due soon the notice says "mow first, spray 2 days later".
+5. **Grass not stressed:** no heat stress, not dormant, soil not dry.
+6. **Seedlings:** the product is safe on the area's grass. On new seed, mesotrione waits for Seedlings ready; triclopyr ester and Other wait until the area has been mowed 3 times after it.
+
+Weather integrations differ: hourly forecasts, wind and rain chance are all optional in Home Assistant. A check the forecast can't answer is skipped, and the notice and the `not_checked` attribute name it.
+
+**After you log a post-emergent** (Last post-emergent, or `lawn_growth.log_event` with a post-emergent product):
+
+- A notification says "don't mow until" 2 days later, and **Mowing allowed** turns off for that area until then, so a robot mower stays off. Mode reads "hold after spraying" and Mowing allowed's `reason` says why. While seedlings are establishing, the hold only adds to the establishment hold: Seedlings ready is still the only way to turn mowing back on.
+- Triclopyr ester gets a follow-up reminder 21 days later (a notification and a calendar event). Mesotrione has none.
+- Its wait before seeding (triclopyr ester 4 weeks) feeds the same seeding check as the pre-emergents. Logging it on an area with new seedlings sends a warning.
+
+**Notifications:** a window opening; "Good spray day tomorrow", at most once every 3 days per area while a window is open and nothing has been sprayed in it; "don't mow until" after a log; and the follow-up reminder.
+
+These defaults (the 80 °F limit, 3 mows, 21 days, 4 weeks, 24 hours rain-free) are placeholders: check the label of the product you use.
 
 ### Copying events to other calendars
 
 Lawn Growth's own calendar stays inside Home Assistant. To keep the record next to your other calendars, or on your phone, pick one or more calendars under **Configure → Lawn settings → Copy events to calendars**. It's optional: leave it empty and nothing is written anywhere.
 
-- **What's copied:** firm events only, because a calendar entry can't be changed once written: a window opening, the pre-emergent late warning, the second (split) pre-emergent reminder, and every logged application (seedings, fertilizer, PGR, winterizer, herbicides). Each is added once, as an all-day event; its description ends with a `Lawn Growth key` line.
-- **What isn't:** tentative and projected dates, overseed prep milestones and planned seed dates (they move or can be cancelled), missed windows and mows. Those stay on Lawn Growth's own calendar.
+- **What's copied:** firm events only, because a calendar entry can't be changed once written: a window opening (including "Post-emergent window open"), the pre-emergent late warning, the second (split) pre-emergent reminder, a post-emergent follow-up, and every logged application (seedings, fertilizer, PGR, winterizer, herbicides). Each is added once, as an all-day event; its description ends with a `Lawn Growth key` line.
+- **What isn't:** tentative and projected dates, overseed prep milestones and planned seed dates (they move or can be cancelled), spray-day notices, missed windows and mows. Those stay on Lawn Growth's own calendar.
 - **Which calendars:** any calendar whose integration supports creating events; the picker lists only those. For example:
   - [Local Calendar](https://www.home-assistant.io/integrations/local_calendar/) keeps a separate calendar inside Home Assistant, such as one next to a mowing log.
   - [Google Calendar](https://www.home-assistant.io/integrations/google/) reaches your phone through the Google Calendar app, or Apple Calendar with the Google account added. Set up Home Assistant's Google Calendar integration first, with **read/write** access (its docs cover the application credentials).

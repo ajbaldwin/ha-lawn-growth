@@ -14,13 +14,16 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
 
-from .applications import PRODUCTS, fmt_day, is_pre_emergent, product_label, seeding_block
-from .windows import LAWN, split_reminder_date, typical_date
+from .applications import (PRODUCTS, fmt_day, is_post_emergent, is_pre_emergent,
+                           product_label, seeding_block)
+from .postemergent import LABELS, followups, no_mow_until
+from .windows import LAWN, POST_KINDS, split_reminder_date, typical_date
 
 _DAY = timedelta(days=1)
 _SOURCES = {"geodrops": "GeoDrops soil probes",
             "gdd": "growing degree days (estimated from air temperatures)",
-            "air": "air temperatures, 7-day mean (estimated)"}
+            "air": "air temperatures, 7-day mean (estimated)",
+            "flag": "weeds flagged (lawn_growth.flag_weeds)"}
 _LOG_LABELS = {"fert": "Fertilizer", "pgr": "PGR", "winterizer": "Winterizer",
                "seeding": "Seeding", "mow": "Mow"}
 _SEEDING_NOTE = ("Note: mesotrione at seeding keeps many weeds out of new grass "
@@ -76,6 +79,8 @@ class _Raw:
 
 
 def _signal(source: str, value, area: str, names: dict) -> str:
+    if source == "flag":
+        return "weeds flagged"
     if value is None:
         return "no signal yet"
     if source == "geodrops":
@@ -184,6 +189,57 @@ def _window_events(w, state: CalendarState, names: dict) -> list:
     return out
 
 
+def _post_window_events(w, state: CalendarState, names: dict) -> list:
+    """A post-emergent window: estimated or projected while upcoming; once open, one
+    span from the open day to its close (it stays open through applications)."""
+    tun, today = state.tunables, state.today
+    label = LABELS[w.kind]
+    out = []
+
+    def add(event, summary, start, end=None, *, firm, description):
+        out.append(_Raw(w.kind, w.season, w.area, event, summary, description, start,
+                        end or start + _DAY, firm, w.status))
+
+    if w.status == "tentative":
+        add("window", f"Post-emergent (estimated, {label})",
+            max(typical_date(w.kind, w.season, tun), today), firm=False,
+            description=_describe(w, names))
+    elif w.status == "projected" and w.projected:
+        add("window", f"Post-emergent window ~{fmt_day(w.projected)} ({label})",
+            w.projected, firm=False, description=_describe(w, names))
+    opened = w.reached_on("open")
+    if opened is not None:
+        if w.closed:
+            end = w.closed
+        elif w.status == "skipped" and w.skipped:
+            end = w.skipped
+        elif w.expected_close:
+            end = max(w.expected_close, today) + _DAY
+        else:
+            end = today + _DAY
+        extra = [f"Applied: {product_label(w.product)} {fmt_day(w.done)}"
+                 if w.done else ""]
+        add("open", f"Post-emergent window open ({label})", opened,
+            max(opened + _DAY, end), firm=True,
+            description=_describe(w, names, info=w.reached.get("open"), extra=extra))
+    return out
+
+
+def _followup_events(state: CalendarState) -> list:
+    out = []
+    for f in followups(state.applications, state.tunables):
+        for area in f.app.areas:
+            if area in state.areas:
+                out.append(_Raw(f.app.product, f.due.year, area,
+                                f"followup-{f.app.date.isoformat()}",
+                                "Post-emergent follow-up",
+                                f"{product_label(f.app.product)} went down "
+                                f"{fmt_day(f.app.date)}; a second application finishes "
+                                f"off the weeds that survived.",
+                                f.due, f.due + _DAY, True, "followup"))
+    return out
+
+
 def overseed_ideal_now(w, tun) -> bool:
     return (w.source == "geodrops" and w.value is not None
             and tun.overseed_ideal_low_f <= w.value <= tun.overseed_open_soil_f)
@@ -208,6 +264,8 @@ def _log_events(state: CalendarState) -> list:
                     if b and b.applied == app.date and b.product == app.product]
             if mine:
                 lines.append(f"Seeding blocked until {fmt_day(mine[0].until)}.")
+            if is_post_emergent(app):
+                lines.append(f"Don't mow until {fmt_day(no_mow_until(app.date, tun))}.")
             description = " ".join(lines)
         else:
             summary, kind = _LOG_LABELS.get(app.kind, app.kind), app.kind
@@ -271,7 +329,11 @@ def calendar_events(state: CalendarState) -> list:
     names = {k: a.name for k, a in state.areas.items()}
     raws = []
     for w in state.windows.values():
-        if w.area == LAWN or w.area in state.areas:
+        if w.kind in POST_KINDS:
+            if w.area in state.areas:
+                raws += _post_window_events(w, state, names)
+        elif w.area == LAWN or w.area in state.areas:
             raws += _window_events(w, state, names)
     raws += _log_events(state)
+    raws += _followup_events(state)
     return _merge(raws, state, names)

@@ -10,6 +10,6 @@ def test_precedence():
     assert modes.resolve_mode(True, False, False, False, False) == "normal"
 
 
-def test_modes_list_includes_overlay():
+def test_modes_list_includes_overlays():
     assert modes.MODES == ["out_of_season", "establishment", "first_mow_ready",
-                           "dormant", "heat_hold", "overseed_prep", "normal"]
+                           "dormant", "heat_hold", "overseed_prep", "spray_hold", "normal"]

@@ -71,6 +71,7 @@ class AreaState:
     low_gp_streak: int = 0
     seeding_date: Optional[date] = None
     seedlings_ready: bool = False
+    seedlings_ready_on: Optional[date] = None   # when Seedlings ready was pressed
     ready_notified: bool = False
     due_notified: bool = False
     mow_records: list = field(default_factory=list)        # list[MowRecord], date-ascending
@@ -103,6 +104,7 @@ class AreaState:
             "low_gp_streak": self.low_gp_streak,
             "seeding_date": _s(self.seeding_date),
             "seedlings_ready": self.seedlings_ready,
+            "seedlings_ready_on": _s(self.seedlings_ready_on),
             "ready_notified": self.ready_notified,
             "due_notified": self.due_notified,
             "mow_records": [r.to_dict() for r in self.mow_records],
@@ -130,6 +132,7 @@ class AreaState:
             low_gp_streak=int(d.get("low_gp_streak", 0)),
             seeding_date=_d(d.get("seeding_date")),
             seedlings_ready=bool(d.get("seedlings_ready", False)),
+            seedlings_ready_on=_d(d.get("seedlings_ready_on")),
             ready_notified=bool(d.get("ready_notified", False)),
             due_notified=bool(d.get("due_notified", False)),
             mow_records=[MowRecord.from_dict(r) for r in d.get("mow_records", [])],

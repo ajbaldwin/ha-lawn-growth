@@ -22,6 +22,7 @@ class GddState:
     last_day: Optional[date] = None         # last day processed (accrued or skipped)
     source: str = ""                        # "sensor" | "forecast" for the last accrued day
     last_season_total: Optional[float] = None
+    sensor: str = ""                        # outdoor sensor the season was counted with
 
     def copy(self) -> "GddState":
         return GddState.from_dict(self.to_dict())
@@ -29,7 +30,8 @@ class GddState:
     def to_dict(self) -> dict:
         return {"year": self.year, "total": self.total,
                 "last_day": self.last_day.isoformat() if self.last_day else None,
-                "source": self.source, "last_season_total": self.last_season_total}
+                "source": self.source, "last_season_total": self.last_season_total,
+                "sensor": self.sensor}
 
     @classmethod
     def from_dict(cls, d: dict) -> "GddState":
@@ -37,7 +39,7 @@ class GddState:
         lst = d.get("last_season_total")
         return cls(int(year) if year is not None else None, float(d.get("total", 0.0)),
                    _d(d.get("last_day")), d.get("source", ""),
-                   float(lst) if lst is not None else None)
+                   float(lst) if lst is not None else None, d.get("sensor") or "")
 
 
 def gdd_day(tmax_f: float, tmin_f: float, base_f: float) -> float:
@@ -50,6 +52,17 @@ def gdd_from_mean(mean_f: float, base_f: float) -> float:
 
 def season_start(year: int, tun) -> date:
     return date(year, tun.gdd_start_month, tun.gdd_start_day)
+
+
+def for_sensor(state: GddState, sensor: str) -> GddState:
+    """The state to keep counting with this outdoor sensor ("" = none). A newly added
+    or changed sensor restarts the season, so it is recounted from the sensor's
+    history; removing the sensor keeps the count, which continues from the forecast."""
+    if sensor and sensor != state.sensor:
+        return GddState(last_season_total=state.last_season_total, sensor=sensor)
+    s = state.copy()
+    s.sensor = sensor
+    return s
 
 
 def days_to_process(state: GddState, yesterday: date, tun) -> list[date]:

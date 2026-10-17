@@ -19,10 +19,10 @@ Betas (`X.Y.Z-beta.N`) are published as GitHub pre-releases. HACS offers them on
 
 ## Setup
 
-- **Weather** (required): any weather entity with a daily (or hourly) forecast. Pre-selected with `weather.home` or `weather.forecast_home` if you have one, or your only weather entity.
+- **Weather** (required): any weather entity with a daily (or hourly) forecast. Pre-selected with `weather.home` or `weather.forecast_home` if you have one, or your only weather entity. If it isn't available yet when Home Assistant starts (common with cloud weather integrations), Lawn Growth still loads and runs as soon as the weather entity comes up, retrying every 15 minutes until a forecast arrives.
 - **Mowing-season switch** (optional): when it is off, the lawn is out of season.
 - **Notify** (optional): where pushes go.
-- **Outdoor temperature sensor** (optional): a weather station's air temperature. Growing degree days then use observed highs and lows, back-filled from the sensor's history; without it they use the weather forecast.
+- **Outdoor temperature sensor** (optional): a weather station's air temperature. Growing degree days then use observed highs and lows, back-filled from the sensor's history; without it they use the weather forecast. You can add or change it any time: the season is then recounted from that sensor's history.
 - **Daily run time** (default 05:00): when the day's growth is added.
 
 Then add a **mowing area** — a stretch of lawn you mow together, for example "Front & Side" and "Back". Most lawns need one to start; add more later from the integration's **Configure → Add a mowing area**. Each mowing area becomes its own device with its own advice; assigning that device to a Home Assistant area afterwards is optional and doesn't affect the advice. Pick a **grass type**; it sets the growth curve and default heights, all editable:

@@ -112,3 +112,26 @@ def test_accrues_through_winter():
     for day in gdd.days_to_process(s, date(2026, 12, 31), TUN):
         s = gdd.accrue(s, day, 1.0, "sensor", TUN)
     assert s.total == pytest.approx(365.0) and s.last_day == date(2026, 12, 31)
+
+
+def test_for_sensor_restarts_on_new_or_changed_sensor():
+    counted = gdd.GddState(2026, 147.5, date(2026, 10, 16), "forecast", 900.0, "")
+    fresh = gdd.for_sensor(counted, "sensor.outdoor")
+    assert (fresh.year, fresh.total, fresh.last_day) == (None, 0.0, None)
+    assert fresh.last_season_total == 900.0 and fresh.sensor == "sensor.outdoor"
+    changed = gdd.for_sensor(gdd.GddState(2026, 10.0, date(2026, 10, 16), "sensor", None,
+                                  "sensor.a"), "sensor.b")
+    assert changed.last_day is None and changed.sensor == "sensor.b"
+
+
+def test_for_sensor_keeps_count_when_unchanged_or_removed():
+    s = gdd.GddState(2026, 147.5, date(2026, 10, 16), "sensor", None, "sensor.outdoor")
+    assert gdd.for_sensor(s, "sensor.outdoor") == s
+    removed = gdd.for_sensor(s, "")
+    assert removed.total == 147.5 and removed.last_day == s.last_day and removed.sensor == ""
+
+
+def test_gdd_state_sensor_round_trip_and_old_stores():
+    s = gdd.GddState(2026, 1.0, date(2026, 1, 1), "sensor", None, "sensor.outdoor")
+    assert gdd.GddState.from_dict(s.to_dict()) == s
+    assert gdd.GddState.from_dict({"year": 2026, "total": 1.0}).sensor == ""

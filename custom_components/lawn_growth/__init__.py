@@ -4,16 +4,17 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import CoreState, HomeAssistant, callback
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, Platform
+from homeassistant.core import CoreState, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
 from homeassistant.helpers.start import async_at_started
 
 from . import services
 from .button import RETIRED_AREA_BUTTONS
 from .const import (AREA_KEY, AREA_LOCATIONS, AREA_MOW_MODE, AREA_MOW_SOURCE, CONF_AREAS,
-                    CONF_MOWER, CONF_RUN_TIME, DEFAULT_RUN_TIME, DOMAIN, MOW_MODE_INCREASES)
+                    CONF_MOWER, CONF_RUN_TIME, CONF_WEATHER, DEFAULT_RUN_TIME, DOMAIN,
+                    MOW_MODE_INCREASES)
 from .coordinator import LawnGrowthCoordinator
 from .mow_sources import CounterWatcher, MowerTracker
 from .store import LawnStore
@@ -58,9 +59,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: LawnGrowthConfigEntry) -
     # accrues the day with live inputs. A reload/options change accrues right away.
     starting = hass.state is not CoreState.running
     coordinator.accrual_enabled = not starting
-    await coordinator.async_config_entry_first_refresh()     # startup run (no notifications)
+    # Startup run (no notifications). It never fails setup: when the weather entity
+    # isn't up yet (a cloud integration at HA start), the entities stay unavailable
+    # and the run is retried — when the weather entity comes up, and every
+    # RETRY_MINUTES until a run succeeds.
+    await coordinator.async_run()
     entry.runtime_data = coordinator
+    entry.async_on_unload(coordinator.cancel_retry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    weather_id = entry.options[CONF_WEATHER]
+
+    @callback
+    def _weather_changed(event: Event[EventStateChangedData]) -> None:
+        new, old = event.data["new_state"], event.data["old_state"]
+        down = (STATE_UNAVAILABLE, STATE_UNKNOWN)
+        came_up = new is not None and new.state not in down \
+            and (old is None or old.state in down)
+        if came_up and coordinator.waiting_for_weather:
+            hass.async_create_task(coordinator.async_run())
+
+    entry.async_on_unload(async_track_state_change_event(hass, [weather_id],
+                                                         _weather_changed))
 
     hour, minute, second = _run_time(entry.options.get(CONF_RUN_TIME, DEFAULT_RUN_TIME))
 

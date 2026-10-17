@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed, async_mock_service)
 
-from custom_components.lawn_growth import const, inputs
+from custom_components.lawn_growth import const, coordinator, inputs
 from custom_components.lawn_growth.model.state import MowRecord
 
 from .common import FLAT_68, NOW, TODAY, area, daily, make_entry, register_weather, setup
@@ -36,13 +36,50 @@ async def test_setup_accrues_once_then_unloads(hass, freezer):
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_no_forecast_means_setup_retry(hass, freezer):
+async def test_no_forecast_loads_and_retries(hass, freezer, caplog):
+    """A forecast that isn't available never fails setup: the entities stay
+    unavailable and the run is retried every RETRY_MINUTES until it works."""
+    freezer.move_to(NOW)
+    calls = register_weather(hass)                         # no forecast of any kind
+    entry = make_entry(hass)
+    await setup(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+    due = "sensor.lawn_growth_lawn_days_until_due"
+    assert hass.states.get(due).state == "unavailable"
+    assert "retrying in 15 minutes" in caplog.text
+    hass.services.async_remove("weather", "get_forecasts")
+    register_weather(hass, daily_rows=daily(TODAY, FLAT_68))
+    freezer.tick(timedelta(minutes=coordinator.RETRY_MINUTES))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get(due).state == "5"
+    assert calls                                           # the first attempt was made
+
+
+async def test_weather_entity_missing_at_startup_runs_when_it_appears(hass, freezer):
+    """A cloud weather integration still starting: setup loads without calling the
+    forecast service, and the run happens as soon as the weather entity comes up."""
+    freezer.move_to(NOW)
+    entry = make_entry(hass)
+    await setup(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+    due = "sensor.lawn_growth_lawn_days_until_due"
+    assert hass.states.get(due).state == "unavailable"
+    register_weather(hass, daily_rows=daily(TODAY, FLAT_68))   # entity comes up
+    await hass.async_block_till_done()
+    assert hass.states.get(due).state == "5"
+    assert entry.runtime_data.store.areas["lawn"].last_accrual == TODAY
+
+
+async def test_retry_cancelled_on_unload(hass, freezer):
     freezer.move_to(NOW)
     register_weather(hass)
     entry = make_entry(hass)
-    await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    assert entry.state is ConfigEntryState.SETUP_RETRY
+    await setup(hass, entry)
+    coord = entry.runtime_data
+    assert coord._retry_unsub is not None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert coord._retry_unsub is None
 
 
 async def test_state_survives_reload(hass, freezer, hass_storage):

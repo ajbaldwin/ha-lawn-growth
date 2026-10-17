@@ -16,7 +16,7 @@
           "season_entity": "Optional. When off, the lawn is out of season. Leave empty for always in season.",
           "notify_service": "Optional. Where mow-due, first-mow and overseed pushes go.",
           "run_time": "When the day's growth is added and pushes are sent.",
-          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history). Without it, the weather forecast is used."
+          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used."
         }
       },
       "area_basics": {
@@ -117,7 +117,7 @@
           "outdoor_temp_entity": "Outdoor temperature sensor"
         },
         "data_description": {
-          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history). Without it, the weather forecast is used."
+          "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used."
         }
       },
       "mower": {

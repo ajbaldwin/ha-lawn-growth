@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-beta.8 — Copy events to your calendars
+- **Copy application events to other calendars.** A new optional **Copy events to calendars** setting under Lawn settings takes one or more calendars that can create events, such as a Local Calendar or Google Calendar (with Home Assistant's Google Calendar integration set up with read/write access, the events reach your phone). Lawn Growth adds each firm event there once, as an all-day event: a window opening, the pre-emergent late warning, the second pre-emergent reminder, and every logged application. Tentative and projected dates stay on Lawn Growth's own calendar. Adding a calendar copies the events already logged; nothing is ever copied twice. If a calendar goes missing or can't take events for 3 days, a repair appears and the waiting events are added once it works again. Leave the setting empty and nothing changes.
+- **Tentative windows show their date.** The Pre-emergent, Winterizer and Overseed window sensors gain an `estimated_date` attribute while tentative: the typical date (Apr 10, Nov 5, Aug 25), the same one the calendar shows.
+
 ## 0.1.0-beta.7 — Application calendar and startup resilience
 - **Application windows for pre-emergent, winterizer and fall overseeding**, timed from soil temperature (or growing degree days and air temperatures without probes). New **Pre-emergent** (lawn-wide), **Winterizer** and **Overseed window** (per area) sensors read tentative, projected, open, done, skipped or missed, with the dates, trigger value and source as attributes.
 - **Notifications** when a window opens, plus pre-emergent heads-up, late, germination-expected and missed alerts and an overseed closing-soon alert. Once per window per season; areas crossing together share one message.

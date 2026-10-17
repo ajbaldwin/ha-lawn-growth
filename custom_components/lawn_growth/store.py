@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, STORAGE_VERSION
+from .model.gdd import GddState
 from .model.management import ManagementEvent
 from .model.session import MowerSession
 from .model.state import AreaState
@@ -20,6 +21,7 @@ class LawnStore:
         self.areas: dict[str, AreaState] = {}
         self.events: list[dict] = []           # {"kind", "date", "areas": [keys]}
         self.session: MowerSession | None = None
+        self.gdd = GddState()                  # lawn-wide growing degree days
 
     async def async_load(self, area_keys) -> None:
         raw = await self._store.async_load() or {}
@@ -28,12 +30,14 @@ class LawnStore:
         self.events = list(raw.get("events", []))
         sess = raw.get("session")
         self.session = MowerSession.from_dict(sess) if sess else None
+        self.gdd = GddState.from_dict(raw.get("gdd") or {})
 
     async def async_save(self) -> None:
         await self._store.async_save({
             "areas": {k: s.to_dict() for k, s in self.areas.items()},
             "events": self.events,
             "session": self.session.to_dict() if self.session else None,
+            "gdd": self.gdd.to_dict(),
         })
 
     async def async_remove(self) -> None:

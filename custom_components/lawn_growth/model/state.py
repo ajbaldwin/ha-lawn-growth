@@ -86,6 +86,7 @@ class AreaState:
     was_in_season: Optional[bool] = None
     mow_source_last: Optional[str] = None
     log_mow_height_in: Optional[float] = None    # Log mow height; None = last cut
+    soil_days: dict = field(default_factory=dict)          # iso date -> {"mean_f", "coverage"}
 
     @property
     def last_cut_in(self) -> Optional[float]:
@@ -117,6 +118,7 @@ class AreaState:
             "was_in_season": self.was_in_season,
             "mow_source_last": self.mow_source_last,
             "log_mow_height_in": self.log_mow_height_in,
+            "soil_days": {k: dict(v) for k, v in self.soil_days.items()},
         }
 
     @classmethod
@@ -143,4 +145,5 @@ class AreaState:
             was_in_season=d.get("was_in_season"),
             mow_source_last=d.get("mow_source_last"),
             log_mow_height_in=d.get("log_mow_height_in"),
+            soil_days={k: dict(v) for k, v in d.get("soil_days", {}).items()},
         )

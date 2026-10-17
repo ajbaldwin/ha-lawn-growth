@@ -6,7 +6,7 @@ from custom_components.lawn_growth.binary_sensor import BINARY_KEYS
 from custom_components.lawn_growth.button import AREA_BUTTONS
 from custom_components.lawn_growth.date import DATE_KEYS
 from custom_components.lawn_growth.model.modes import MODES
-from custom_components.lawn_growth.sensor import SENSOR_SPECS
+from custom_components.lawn_growth.sensor import EXTRA_SENSOR_KEYS, SENSOR_SPECS
 
 ROOT = Path(__file__).parent.parent / "custom_components" / "lawn_growth"
 KEY = re.compile(r"^[a-z0-9_-]+$")      # hassfest translation-key rule
@@ -22,7 +22,7 @@ def test_en_json_matches_strings_json():
 
 def test_every_entity_has_a_name_and_no_extras():
     ent = _load("strings.json")["entity"]
-    assert set(ent["sensor"]) == {s.key for s in SENSOR_SPECS}
+    assert set(ent["sensor"]) == {s.key for s in SENSOR_SPECS} | set(EXTRA_SENSOR_KEYS)
     assert set(ent["binary_sensor"]) == set(BINARY_KEYS)
     assert set(ent["button"]) == set(AREA_BUTTONS) | {"evaluate_now"}
     assert set(ent["date"]) == set(DATE_KEYS)

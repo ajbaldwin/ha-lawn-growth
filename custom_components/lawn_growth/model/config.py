@@ -41,6 +41,15 @@ class Tunables:
     forecast_horizon_days: int = 10
     history_days: int = 45
     max_catchup_days: int = 10
+    # soil temperature / GDD
+    gdd_base_f: float = 50.0
+    gdd_start_month: int = 1
+    gdd_start_day: int = 1
+    gdd_max_backfill_days: int = 366
+    soil_min_coverage: float = 0.75
+    soil_window_days: int = 5
+    soil_min_valid_days: int = 3
+    soil_days_kept: int = 7
 
 
 @dataclass(frozen=True)

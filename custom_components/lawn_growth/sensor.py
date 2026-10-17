@@ -1,15 +1,21 @@
-"""Per-area sensors."""
+"""Per-area sensors, plus the lawn-wide growing degree days."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Callable
 
 from homeassistant.components.sensor import (
     SensorDeviceClass, SensorEntity, SensorStateClass)
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfLength
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfLength, UnitOfTemperature
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
+from .const import AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH, DOMAIN
 from .entity import LawnGrowthEntity
+from .model import gdd as gdd_model
+from .model import soiltemp
 from .model.modes import MODES
 
 
@@ -78,10 +84,18 @@ SENSOR_SPECS = (
 )
 
 
+# Sensors outside SENSOR_SPECS (their values don't come from the area result).
+EXTRA_SENSOR_KEYS = ("soil_temperature", "gdd")
+
+
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(AreaSensor(coordinator, key, spec)
-                       for key in coordinator.areas for spec in SENSOR_SPECS)
+    async_add_entities([
+        *(AreaSensor(coordinator, key, spec)
+          for key in coordinator.areas for spec in SENSOR_SPECS),
+        *(SoilTemperatureSensor(coordinator, key) for key in coordinator.areas),
+        GddSensor(coordinator),
+    ])
 
 
 class AreaSensor(LawnGrowthEntity, SensorEntity):
@@ -107,3 +121,68 @@ class AreaSensor(LawnGrowthEntity, SensorEntity):
         if r is None or self._spec.attrs is None:
             return None
         return self._spec.attrs(r, self.area_state)
+
+
+class SoilTemperatureSensor(LawnGrowthEntity, SensorEntity):
+    """Soil5: the mean of the last 5 days' soil temperature from the area's GeoDrops
+    probes; unknown while the area relies on growing degree days."""
+    _attr_native_unit_of_measurement = UnitOfTemperature.FAHRENHEIT
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator, area_key: str) -> None:
+        super().__init__(coordinator, area_key, "soil_temperature", "sensor")
+
+    @property
+    def native_value(self):
+        value, _ = self.coordinator.soil5(self._area_key, dt_util.now().date())
+        return None if value is None else round(value, 2)
+
+    @property
+    def extra_state_attributes(self):
+        today = dt_util.now().date()
+        value, valid = self.coordinator.soil5(self._area_key, today)
+        probes = self.coordinator.soil_probes.get(self._area_key, ())
+        days = self.area_state.soil_days
+        last = days.get((today - timedelta(days=1)).isoformat()) or {}
+        return {"source": soiltemp.source_for(value),
+                "valid_days": valid,
+                "depth": self.coordinator.area_options[self._area_key].get(
+                    AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH),
+                "probes": [p.temp for p in probes],
+                "yesterday_f": last.get("mean_f"),
+                "yesterday_coverage": last.get("coverage")}
+
+
+class GddSensor(CoordinatorEntity, SensorEntity):
+    """Growing degree days (base 50 °F) since the season start, lawn-wide."""
+    _attr_has_entity_name = True
+    _attr_translation_key = "gdd"
+    _attr_native_unit_of_measurement = "GDD"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        entry_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{entry_id}_gdd"
+        self.entity_id = f"sensor.{DOMAIN}_gdd"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry_id)},
+                                            name="Lawn Growth", manufacturer="Lawn Growth",
+                                            model="Lawn")
+
+    @property
+    def native_value(self):
+        state = self.coordinator.store.gdd
+        return None if state.year is None else round(state.total, 1)
+
+    @property
+    def extra_state_attributes(self):
+        state, tun = self.coordinator.store.gdd, self.coordinator.tunables
+        return {"base_f": tun.gdd_base_f,
+                "season_start": (gdd_model.season_start(state.year, tun).isoformat()
+                                 if state.year is not None else None),
+                "last_day": state.last_day.isoformat() if state.last_day else None,
+                "source": state.source or None,
+                "last_season_total": state.last_season_total}

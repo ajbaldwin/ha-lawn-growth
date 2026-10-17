@@ -1,6 +1,7 @@
 {
   "domain": "lawn_growth",
   "name": "Lawn Growth",
+  "after_dependencies": ["recorder"],
   "codeowners": ["@ajbaldwin"],
   "config_flow": true,
   "documentation": "https://github.com/ajbaldwin/ha-lawn-growth",

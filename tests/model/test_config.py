@@ -10,6 +10,10 @@ def test_tunable_defaults():
     assert (t.germination_days, t.min_establishment_days, t.first_mow_ratio) == (10, 21, 1.5)
     assert (t.target_min_change_in, t.target_hold_days) == (0.25, 7)
     assert t.forecast_horizon_days == 10 and t.history_days == 45 and t.max_catchup_days == 10
+    assert (t.gdd_base_f, t.gdd_start_month, t.gdd_start_day, t.gdd_max_backfill_days) == (
+        50.0, 1, 1, 366)
+    assert (t.soil_min_coverage, t.soil_window_days, t.soil_min_valid_days,
+            t.soil_days_kept) == (0.75, 5, 3, 7)
 
 
 def test_presets_cover_spec_table():

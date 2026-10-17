@@ -22,6 +22,7 @@ Betas (`X.Y.Z-beta.N`) are published as GitHub pre-releases. HACS offers them on
 - **Weather** (required): any weather entity with a daily (or hourly) forecast. Pre-selected with `weather.home` or `weather.forecast_home` if you have one, or your only weather entity.
 - **Mowing-season switch** (optional): when it is off, the lawn is out of season.
 - **Notify** (optional): where pushes go.
+- **Outdoor temperature sensor** (optional): a weather station's air temperature. Growing degree days then use observed highs and lows, back-filled from the sensor's history; without it they use the weather forecast.
 - **Daily run time** (default 05:00): when the day's growth is added.
 
 Then add a **mowing area** — a stretch of lawn you mow together, for example "Front & Side" and "Back". Most lawns need one to start; add more later from the integration's **Configure → Add a mowing area**. Each mowing area becomes its own device with its own advice; assigning that device to a Home Assistant area afterwards is optional and doesn't affect the advice. Pick a **grass type**; it sets the growth curve and default heights, all editable:
@@ -35,7 +36,7 @@ Then add a **mowing area** — a stretch of lawn you mow together, for example "
 | Bermuda / Zoysia | warm | 1.0–2.0″ | — |
 | St. Augustine | warm | 2.5–4.0″ | — |
 
-Optional per area: **soil moisture sensors** (averaged; GeoDrops sensors are quality-checked automatically) and a **mow counter** — for mowers without an integration, an entity that changes after each mow, such as a counter that goes up by one. Leave it empty if you'll set up a robot mower below.
+Optional per area: **soil moisture sensors** (averaged; GeoDrops sensors are quality-checked automatically; their soil temperature at the chosen **soil temperature depth** — 1.5″, 2.5″ (default) or 3.5″ — is tracked too) and a **mow counter** — for mowers without an integration, an entity that changes after each mow, such as a counter that goes up by one. Leave it empty if you'll set up a robot mower below.
 
 Add more areas, edit them, or set up a mower from the integration's **Configure** menu.
 
@@ -58,6 +59,9 @@ Under **Configure → Mower settings**, pick the mower's activity entity (and wh
 | Last mow | set it to log a mow on that date (each set adds a mow, it doesn't correct one); a date older than the one already stored is kept as history only, so the entity keeps showing the newer date. Setting the date already shown does nothing |
 | Last fertilizer, Last PGR | set either to log an application on that date (each set adds one, it doesn't correct one); goes back to empty once the record ages past 35 days. Setting the date already shown does nothing |
 | Soil moisture used, Seedling height estimate | diagnostics |
+| Soil temperature | mean soil temperature of the last 5 days from the area's GeoDrops probes, counting only readings taken while the probe reports good quality; unknown while fewer than 3 of those days are complete (for example while the probes are out for winter). Attribute `source` is `geodrops` or `gdd` |
+
+Lawn-wide: **Growing degree days** — base 50 °F, counted from Jan 1, reset each year.
 
 Buttons per area: **Log mow** (one tap for today, at the area's **Log mow height**) and **Seedlings ready**. **Log mow height** defaults to the last cut height; set it before logging a mow at a different height. The **Last mow** date picker uses it too. Lawn-wide: **Evaluate now**. Log seedings, fertilizer and PGR with their date entities.
 

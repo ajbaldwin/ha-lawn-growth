@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from . import inputs
-from .const import (AREA_KEY, AREA_MOISTURE, CONF_AREAS, CONF_NOTIFY, CONF_SEASON,
-                    CONF_WEATHER, DOMAIN)
-from .model import establishment, evaluate, mow, notify, presets
+from .const import (AREA_KEY, AREA_MOISTURE, AREA_SOIL_DEPTH, CONF_AREAS, CONF_NOTIFY,
+                    CONF_OUTDOOR_TEMP, CONF_SEASON, CONF_WEATHER, DEFAULT_SOIL_DEPTH, DOMAIN)
+from .model import establishment, evaluate, gdd, mow, notify, presets, soiltemp
 from .model.config import Tunables
 from .model.state import MowRecord, OverseedState
 from .store import LawnStore
@@ -26,6 +26,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         self.tunables = Tunables()
         self.area_options = {a[AREA_KEY]: a for a in entry.options.get(CONF_AREAS, [])}
         self.areas = {k: presets.area_from_options(a) for k, a in self.area_options.items()}
+        self.soil_probes: dict[str, tuple] = {}     # area key -> inputs.SoilProbe tuple
         self._lock = asyncio.Lock()
         # Off while HA is still starting: inputs such as soil-moisture sensors may not
         # be up yet, and today's accrual happens once. The run at HA start turns it on.
@@ -71,6 +72,9 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                                 "projection from today's mean", self._opts[CONF_WEATHER])
                 self._flat_warned = True
             season = inputs.in_season(self.hass, self._opts.get(CONF_SEASON))
+            self._find_soil_probes()
+            if self.accrual_enabled and inputs.recorder_ready(self.hass):
+                await self._async_update_temperature_signals(today)
             results = {}
             for key, cfg in self.areas.items():
                 state = self.store.areas[key]
@@ -99,6 +103,74 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                 results[key] = result
             await self.store.async_save()
         return results, messages
+
+    def _find_soil_probes(self) -> None:
+        self.soil_probes = {
+            key: inputs.soil_probes(self.hass, opts.get(AREA_MOISTURE, []),
+                                    opts.get(AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH))
+            for key, opts in self.area_options.items()}
+
+    async def _async_update_temperature_signals(self, today: date) -> None:
+        """Fill in the completed days not yet recorded: lawn-wide GDD and each area's
+        daily soil temperature. Only missing days are read, so after the first run of
+        the day this costs nothing. A recorder failure skips the update; the next run
+        retries the same days."""
+        yesterday = today - timedelta(days=1)
+        try:
+            await self._async_update_gdd(yesterday)
+            for key, probes in self.soil_probes.items():
+                if probes:
+                    await self._async_update_soil(key, probes, today)
+        except Exception as err:  # noqa: BLE001 - signals must never fail the run
+            _LOGGER.warning("Lawn Growth could not read soil/outdoor temperature "
+                            "history: %s", err)
+
+    async def _async_update_gdd(self, yesterday: date) -> None:
+        tun = self.tunables
+        days = gdd.days_to_process(self.store.gdd, yesterday, tun)
+        if not days:
+            return
+        sensor = self._opts.get(CONF_OUTDOOR_TEMP)
+        observed = (await inputs.async_daily_min_max(self.hass, sensor, days[0], days[-1])
+                    if sensor else {})
+        forecast = {h.date: h.mean_f for s in self.store.areas.values() for h in s.history}
+        state, gaps = self.store.gdd, 0
+        for day in days:
+            if day in observed:
+                tmax, tmin = observed[day]
+                value, source = gdd.gdd_day(tmax, tmin, tun.gdd_base_f), "sensor"
+            elif day in forecast:
+                value, source = gdd.gdd_from_mean(forecast[day], tun.gdd_base_f), "forecast"
+            else:
+                value, source = None, ""
+                gaps += 1
+            state = gdd.accrue(state, day, value, source, tun)
+        if gaps:
+            _LOGGER.info("Lawn Growth: no temperature data for %d of %d GDD days (%s to %s)",
+                         gaps, len(days), days[0], days[-1])
+        self.store.gdd = state
+
+    async def _async_update_soil(self, key: str, probes, today: date) -> None:
+        tun = self.tunables
+        state = self.store.areas[key].copy()
+        days = soiltemp.prune_days(state.soil_days, today, tun.soil_days_kept)
+        for back in range(tun.soil_days_kept, 0, -1):
+            day = today - timedelta(days=back)
+            if day.isoformat() in days:
+                continue
+            series = await inputs.async_soil_day(self.hass, probes, day)
+            mean, coverage = soiltemp.area_day(
+                [soiltemp.probe_day_mean(*s) for s in series], tun.soil_min_coverage)
+            days[day.isoformat()] = {"mean_f": mean, "coverage": round(coverage, 3)}
+        state.soil_days = days
+        self.store.areas[key] = state
+
+    def soil5(self, key: str, today: date) -> tuple[float | None, int]:
+        if not self.soil_probes.get(key):
+            return None, 0
+        tun = self.tunables
+        return soiltemp.soil5(soiltemp.days_by_date(self.store.areas[key].soil_days), today,
+                              tun.soil_window_days, tun.soil_min_valid_days)
 
     async def _async_send(self, msg) -> None:
         target = self._opts.get(CONF_NOTIFY)

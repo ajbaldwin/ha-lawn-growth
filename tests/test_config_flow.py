@@ -192,6 +192,32 @@ async def test_settings(hass):
     assert entry.options[c.CONF_AREAS][0][c.AREA_KEY] == "back"
 
 
+async def test_settings_outdoor_temperature_sensor(hass):
+    entry = _entry(hass)
+    r = await _menu(hass, entry, "settings")
+    assert c.CONF_OUTDOOR_TEMP in _fields(r)
+    await hass.config_entries.options.async_configure(r["flow_id"], {
+        c.CONF_WEATHER: "weather.home", c.CONF_RUN_TIME: "05:00:00",
+        c.CONF_OUTDOOR_TEMP: "sensor.outdoor"})
+    assert entry.options[c.CONF_OUTDOOR_TEMP] == "sensor.outdoor"
+    r = await _menu(hass, entry, "settings")
+    await hass.config_entries.options.async_configure(r["flow_id"], {
+        c.CONF_WEATHER: "weather.home", c.CONF_RUN_TIME: "05:00:00"})
+    assert c.CONF_OUTDOOR_TEMP not in entry.options      # cleared when left empty
+
+
+async def test_area_soil_temperature_depth(hass):
+    entry = _entry(hass)
+    r = await _menu(hass, entry, "edit_area")
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"area": "back"})
+    r = await hass.config_entries.options.async_configure(
+        r["flow_id"], {c.AREA_NAME: "Back", c.AREA_GRASS: "tttf_kbg"})
+    assert _defaults(r)[c.AREA_SOIL_DEPTH] == c.DEFAULT_SOIL_DEPTH
+    await hass.config_entries.options.async_configure(
+        r["flow_id"], {**DETAILS, c.AREA_SOIL_DEPTH: "d3"})
+    assert entry.options[c.CONF_AREAS][0][c.AREA_SOIL_DEPTH] == "d3"
+
+
 async def test_mower_setup_and_location_mapping(hass):
     entry = _entry(hass)
     hass.states.async_set("sensor.loc", "Not working", {"options": ["Backyard", "Front Yard"]})

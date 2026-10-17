@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — Soil temperature and growing degree days
+- **Soil temperature per mowing area**, from the GeoDrops probes behind its soil moisture sensors, at a depth you pick (1.5″, 2.5″ default, 3.5″). A reading counts only while GeoDrops reports good quality and the probe isn't calibrating, so a freshly installed or pulled probe drops out by itself and comes back once GeoDrops trusts it again. The sensor shows the last 5 days' mean once at least 3 of them are complete.
+- **Growing degree days** (base 50 °F, from Jan 1), lawn-wide. Set an **Outdoor temperature sensor** under Lawn settings to use observed highs and lows (back-filled from its history); otherwise the weather forecast is used.
+- Groundwork for the application calendar (`docs/application-calendar-spec.md`); no new notifications yet.
+
 ## 0.1.0-beta.5 — Seedlings ready decides
 - **Mowing seedlings no longer ends establishment early.** Before, logging any mow after the seeding date cleared the seeding date. Now a mow only ends establishment after you press Seedlings ready. Mows before that still update Last mow and the cut height, but the area stays in establishment, so Mowing allowed stays off. To end establishment yourself, press Seedlings ready; the next mow then returns the area to normal.
 - **Only Seedlings ready allows mowing on new seed.** Before, the model's seedling-height estimate could switch an area to first mow ready on its own, which turned Mowing allowed on (and could start a robot mower). Now the estimate only notifies you ("seedlings look ready… press Seedlings ready") and Overseed status reads "seedlings look ready". Mowing allowed stays off until you press the button.

@@ -66,6 +66,8 @@ def _lawn_schema(hass, values: dict, *, weather_default=vol.UNDEFINED) -> vol.Sc
                                                 mode=SelectSelectorMode.DROPDOWN)),
         vol.Required(c.CONF_RUN_TIME, default=values.get(c.CONF_RUN_TIME, c.DEFAULT_RUN_TIME)):
             TimeSelector(),
+        vol.Optional(c.CONF_OUTDOOR_TEMP, description=_suggest(values.get(c.CONF_OUTDOOR_TEMP))):
+            EntitySelector(EntitySelectorConfig(domain="sensor", device_class="temperature")),
     })
 
 
@@ -100,6 +102,8 @@ def _details_schema(d: dict, *, grass: str, locations: list | None) -> vol.Schem
                             description=_suggest(d.get(c.AREA_OVERSEED_TARGET)))] = _inches()
     fields[vol.Optional(c.AREA_MOISTURE, default=d.get(c.AREA_MOISTURE, []))] = EntitySelector(
         EntitySelectorConfig(domain="sensor", multiple=True))
+    fields[vol.Required(c.AREA_SOIL_DEPTH, default=d.get(c.AREA_SOIL_DEPTH, c.DEFAULT_SOIL_DEPTH))] =         SelectSelector(SelectSelectorConfig(options=list(c.SOIL_DEPTHS),
+                                            translation_key="soil_depth"))
     fields[vol.Required(c.AREA_WILTING, default=d.get(c.AREA_WILTING, 40.0))] = _number(0, 100, 0.5)
     fields[vol.Required(c.AREA_COMFORTABLE, default=d.get(c.AREA_COMFORTABLE, 67.0))] = \
         _number(0, 100, 0.5)
@@ -135,6 +139,7 @@ def _build_area(key: str, name: str, grass: str, ui: dict) -> dict:
         c.AREA_CUT_MIN: float(ui[c.AREA_CUT_MIN]), c.AREA_CUT_MAX: float(ui[c.AREA_CUT_MAX]),
         c.AREA_OVERSEED_TARGET: ui.get(c.AREA_OVERSEED_TARGET),
         c.AREA_MOISTURE: list(ui.get(c.AREA_MOISTURE, [])),
+        c.AREA_SOIL_DEPTH: ui.get(c.AREA_SOIL_DEPTH, c.DEFAULT_SOIL_DEPTH),
         c.AREA_WILTING: float(ui[c.AREA_WILTING]),
         c.AREA_COMFORTABLE: float(ui[c.AREA_COMFORTABLE]),
         c.AREA_MOW_SOURCE: ui.get(c.AREA_MOW_SOURCE) or None,
@@ -376,7 +381,7 @@ class LawnGrowthOptionsFlow(_AreaSteps, config_entries.OptionsFlowWithReload):
     async def async_step_settings(self, user_input=None):
         if user_input is not None:
             opts = {k: v for k, v in self.config_entry.options.items()
-                    if k not in (c.CONF_SEASON, c.CONF_NOTIFY)}
+                    if k not in (c.CONF_SEASON, c.CONF_NOTIFY, c.CONF_OUTDOOR_TEMP)}
             opts.update(_clean(user_input))
             return self.async_create_entry(title="", data=opts)
         return self.async_show_form(step_id="settings",

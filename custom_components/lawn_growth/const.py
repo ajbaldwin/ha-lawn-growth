@@ -9,6 +9,7 @@ CONF_NOTIFY = "notify_service"
 CONF_RUN_TIME = "run_time"
 CONF_MOWER = "mower"
 CONF_AREAS = "areas"
+CONF_OUTDOOR_TEMP = "outdoor_temp_entity"
 DEFAULT_RUN_TIME = "05:00:00"
 
 # entry.options[CONF_MOWER]
@@ -36,6 +37,11 @@ AREA_MOW_SOURCE = "mow_source_entity"
 AREA_MOW_MODE = "mow_source_mode"
 AREA_LOCATIONS = "mower_locations"
 AREA_MAX_RATE = "max_growth_rate_mm"
+AREA_SOIL_DEPTH = "soil_temp_depth"
+
+# GeoDrops temperature depths: d1 = 1.5", d2 = 2.5", d3 = 3.5"
+SOIL_DEPTHS = ("d1", "d2", "d3")
+DEFAULT_SOIL_DEPTH = "d2"
 
 MOW_MODE_INCREASES = "number_increases"
 MOW_MODE_ANY = "any_change"

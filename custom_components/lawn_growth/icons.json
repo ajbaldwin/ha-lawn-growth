@@ -14,11 +14,13 @@
       "seedling_height_estimate": {"default": "mdi:seed-outline"},
       "pre_emergent": {"default": "mdi:shield-sun-outline"},
       "winterizer": {"default": "mdi:snowflake-alert"},
-      "overseed_window": {"default": "mdi:seed-plus-outline"}
+      "overseed_window": {"default": "mdi:seed-plus-outline"},
+      "post_emergent": {"default": "mdi:spray"}
     },
     "binary_sensor": {
       "mow_due": {"default": "mdi:mower"},
-      "mowing_allowed": {"default": "mdi:mower"}
+      "mowing_allowed": {"default": "mdi:mower"},
+      "good_spray_day": {"default": "mdi:spray"}
     },
     "button": {
       "log_mow": {"default": "mdi:mower"},
@@ -31,13 +33,15 @@
       "last_fertilizer": {"default": "mdi:shaker-outline"},
       "last_pgr": {"default": "mdi:flask-outline"},
       "last_winterizer": {"default": "mdi:snowflake"},
-      "last_pre_emergent": {"default": "mdi:shield-sun-outline"}
+      "last_pre_emergent": {"default": "mdi:shield-sun-outline"},
+      "last_post_emergent": {"default": "mdi:spray"}
     },
     "number": {
       "log_mow_height": {"default": "mdi:arrow-expand-vertical"}
     },
     "select": {
-      "pre_emergent_product": {"default": "mdi:bottle-tonic-outline"}
+      "pre_emergent_product": {"default": "mdi:bottle-tonic-outline"},
+      "post_emergent_product": {"default": "mdi:bottle-tonic-outline"}
     },
     "calendar": {
       "applications": {"default": "mdi:calendar-month-outline"}
@@ -50,6 +54,7 @@
     "seedlings_ready": {"service": "mdi:sprout"},
     "log_event": {"service": "mdi:shaker-outline"},
     "skip_application": {"service": "mdi:debug-step-over"},
+    "flag_weeds": {"service": "mdi:flag-outline"},
     "prep_overseed": {"service": "mdi:arrow-collapse-down"},
     "cancel_overseed": {"service": "mdi:close"},
     "evaluate_now": {"service": "mdi:refresh"}

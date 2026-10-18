@@ -1,5 +1,6 @@
 """Date pickers: seeding_date replaces the stored date; the others log a new
-record/event on the chosen date. Per area, plus the lawn-wide Last pre-emergent."""
+record/event on the chosen date. Per area, plus the lawn-wide Last pre-emergent.
+Last pre-emergent and Last post-emergent log with their Product select's product."""
 from __future__ import annotations
 
 from datetime import date
@@ -12,7 +13,8 @@ from .const import DOMAIN
 from .entity import LawnEntity, LawnGrowthEntity
 from .model import applications
 
-DATE_KEYS = ("seeding_date", "last_mow", "last_fertilizer", "last_pgr", "last_winterizer")
+DATE_KEYS = ("seeding_date", "last_mow", "last_fertilizer", "last_pgr", "last_winterizer",
+             "last_post_emergent")
 LAWN_DATE_KEYS = ("last_pre_emergent",)
 _EVENT_KIND = {"last_fertilizer": "fert", "last_pgr": "pgr"}
 
@@ -44,6 +46,11 @@ class AreaDateEntity(LawnGrowthEntity, DateEntity):
         if self._suffix == "last_winterizer":
             return applications.latest(self.coordinator.applications(today),
                                        self._area_key, ("winterizer",))
+        if self._suffix == "last_post_emergent":
+            dates = [a.date for a in applications.for_area(
+                self.coordinator.applications(today), self._area_key, ("herbicide",))
+                     if applications.is_post_emergent(a)]
+            return max(dates) if dates else None
         return self.coordinator.store.latest_event_date(
             self._area_key, _EVENT_KIND[self._suffix], today)
 
@@ -61,6 +68,8 @@ class AreaDateEntity(LawnGrowthEntity, DateEntity):
             await c.async_log_mow(key, on=value)
         elif self._suffix == "last_winterizer":
             await c.async_log_event("winterizer", [key], on=value)
+        elif self._suffix == "last_post_emergent":
+            await c.async_log_post_emergent(key, on=value)
         else:
             await c.async_log_event(_EVENT_KIND[self._suffix], [key], on=value)
 

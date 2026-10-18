@@ -48,6 +48,8 @@ class LawnStore:
         self.windows: dict[str, Window] = {}   # windows.window_key -> Window
         self.pre_emergent_product: str | None = None  # None: follow the suggestion
         self.calendar_ledgers: dict[str, Ledger] = {}  # target calendar -> what's written
+        self.post_emergent_products: dict[str, str] = {}   # area -> Post-emergent product
+        self.followups_notified: list[str] = []      # postemergent.FollowUp keys
 
     async def async_load(self, area_keys) -> None:
         raw = await self._store.async_load() or {}
@@ -62,6 +64,8 @@ class LawnStore:
         self.pre_emergent_product = raw.get("pre_emergent_product")
         self.calendar_ledgers = {k: Ledger.from_dict(v)
                                  for k, v in (raw.get("calendar_ledgers") or {}).items()}
+        self.post_emergent_products = dict(raw.get("post_emergent_products") or {})
+        self.followups_notified = list(raw.get("followups_notified") or [])
 
     async def async_save(self) -> None:
         await self._store.async_save({
@@ -73,6 +77,8 @@ class LawnStore:
             "windows": {k: w.to_dict() for k, w in self.windows.items()},
             "pre_emergent_product": self.pre_emergent_product,
             "calendar_ledgers": {k: v.to_dict() for k, v in self.calendar_ledgers.items()},
+            "post_emergent_products": dict(self.post_emergent_products),
+            "followups_notified": list(self.followups_notified),
         })
 
     async def async_remove(self) -> None:

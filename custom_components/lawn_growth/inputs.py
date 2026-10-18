@@ -6,7 +6,7 @@ import logging
 import math
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from homeassistant.components.recorder import get_instance, history
 from homeassistant.components.recorder.statistics import statistics_during_period
@@ -51,6 +51,36 @@ async def async_read_temps(hass: HomeAssistant, weather_entity: str,
         if temps is not None:
             return temps
     return None
+
+
+def local_naive(value: str) -> datetime:
+    parsed = dt_util.parse_datetime(value)
+    if parsed is None:
+        raise ValueError(f"not a datetime: {value!r}")
+    return dt_util.as_local(parsed).replace(tzinfo=None)
+
+
+async def async_read_detail(hass: HomeAssistant, weather_entity: str) -> weather.ForecastDetail:
+    """Daily highs and precipitation chance, hourly wind and precipitation chance, for
+    the spray-day check and the spring window's heat close. Every field is optional:
+    a forecast type the entity doesn't offer just leaves its fields empty."""
+    st = hass.states.get(weather_entity)
+    attrs = st.attributes if st else {}
+    rows = {}
+    for kind in ("daily", "hourly"):
+        try:
+            resp = await hass.services.async_call(
+                "weather", "get_forecasts", {"type": kind},
+                target={"entity_id": weather_entity}, blocking=True, return_response=True)
+        except HomeAssistantError as err:
+            _LOGGER.debug("%s has no %s forecast: %s", weather_entity, kind, err)
+            continue
+        rows[kind] = ((resp or {}).get(weather_entity) or {}).get("forecast") or []
+    return weather.detail_from(
+        rows.get("daily"), rows.get("hourly"),
+        temp_unit=attrs.get("temperature_unit") or hass.config.units.temperature_unit,
+        wind_unit=attrs.get("wind_speed_unit") or hass.config.units.wind_speed_unit,
+        local_date=local_date, local_dt=local_naive)
 
 
 def _geodrops_qualities(hass: HomeAssistant, registry, entity_id: str) -> tuple:

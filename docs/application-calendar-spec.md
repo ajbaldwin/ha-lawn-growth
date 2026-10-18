@@ -1,6 +1,6 @@
 # Application calendar — spec (draft)
 
-Status: draft, 2026-10-17. P1 (§1), P2 (§2.1–2.3, §2.5, §3–4 without post-emergent) and P3 (§5) are built; P4 is not. See "P2 as built" and "P3 as built" below for the choices made where the spec left room.
+Status: 2026-10-17. P1 (§1), P2 (§2.1–2.3, §2.5, §3–4 without post-emergent), P3 (§5) and P4 (§2.4 and its parts of §3–4) are built. See "P2 as built", "P3 as built" and "P4 as built" below for the choices made where the spec left room.
 
 ## Goal
 
@@ -304,7 +304,7 @@ Lawn Growth is published for other people, so the phone calendar must work for i
 | P1 ✅ | Soil source selection, GDD, Soil temperature and GDD sensors. No alerts. Ship **before Jan 1** so GDD counts from day one, or set the outdoor temperature sensor so it back-fills from statistics. | ~1 day |
 | P2 ✅ | Windows, status sensors, notifications, application log, calendar entity | ~1.5–2 days |
 | P3 ✅ | Phone calendar: the setting and its validation, the firm-event writer and its ledger, the repair issue, README/CHANGELOG (§5.1). | ~0.5–1 day |
-| P4 | Post-emergent: windows, spray-day check, `Good spray day`, the Mowing allowed hold, `flag_weeds`. Starts by checking which forecast fields common weather integrations return. Needed by May (spring broadleaf). | ~1–1.5 days |
+| P4 ✅ | Post-emergent: windows, spray-day check, `Good spray day`, the Mowing allowed hold, `flag_weeds`. Starts by checking which forecast fields common weather integrations return. Needed by May (spring broadleaf). | ~1–1.5 days |
 
 ## P2 as built
 
@@ -332,6 +332,24 @@ Choices made where the spec left room (P3 and P4 build on these):
 - **Retries.** A failed write stays pending and is retried every run. It's dropped after 3 days only while other writes to the same calendar succeed; while every write fails (the calendar is down), nothing is dropped, so the backlog lands once it works again.
 - **Repair** `calendar_unavailable_<entity>` (translation `calendar_unavailable`), one per calendar: raised when the calendar doesn't exist, or writes have failed (or it was unavailable with writes due) on 3 consecutive days. Cleared by the next successful write, a run where it's reachable with nothing failing, or taking it out of the setting. The warning is logged when the issue is first raised.
 - Store: `calendar_ledgers` (additive; no version bump).
+
+## P4 as built
+
+- **Forecast fields.** Checked against Home Assistant's `weatherflow_cloud` integration (its `weatherflow4py` forecast mapping): the daily forecast has high/low and precipitation probability but no wind; the hourly one has temperature, wind speed and gust, precipitation amount and probability. Other integrations vary (some have no hourly forecast, some no probability), so a separate read (`inputs.async_read_detail`) asks for both forecast types and takes whatever fields come back. Wind is converted from the entity's `wind_speed_unit` to mph.
+- **Windows** are three kinds per area, `spring_broadleaf`, `fall_broadleaf` and `young_crabgrass`, in `model/postemergent.py`, run after the other windows each day. Their season is the calendar year. Statuses are `tentative`, `projected`, `open`, `done`, `skipped` and `closed`: a window stays open through applications and, when it closes, reads `done` if a post-emergent was logged in it, else `closed` (not `missed`: no weeds to spray isn't a miss, so it pushes nothing and adds no "missed" event).
+- **Spring broadleaf** uses the area's Soil5, else lawn-wide GDD (≥ 250). Heat close: highs ≥ 85 °F on 3 of the next 5 forecast days. It closes after Jun 30 (from Jul 1). Projected like the pre-emergent (soil trend, forecast GDD).
+- **Fall broadleaf** opens from **Aug 15** (the reading of "after summer"). Dormancy only closes it once open; a 7-day mean below 45 °F before it opened closes it silently.
+- **Young crabgrass** exists only when the pre-emergent window reached "germination expected" and no pre-emergent was logged before that date (missed, skipped, still nothing, or logged on/after germination). It's projected for germination + 14 days, then open for 42 days. Before germination there's no window and nothing on the calendar.
+- **`flag_weeds`** opens the target's window today (broadleaf: the spring window through Jun 30, else the fall window; crabgrass: young crabgrass). An open window is left as it is, a skipped one reopens, a `done`/`closed` one raises `window_ended`. A flagged open doesn't push "window open" (the user just said so).
+- **`skip_application` `post_emergent`** skips the area's open windows, or else the next one to open.
+- **Spray-day check** (`postemergent.spray_day`) for today and tomorrow while a window is open: temperature (high 60 °F to the product's limit; triclopyr ester 80 °F, also against the next day's high), rain (max hourly probability < 30 % from 08:00 for the product's rain-free hours, else the daily probability), wind (max hourly wind < 10 mph from 06:00 to 12:00), mowing (last mow ≥ 2 days before; no mow due within 2 days after), stress (dormant, heat hold for that day's high, water factor < 0.5), seedlings. Rain-free hours are per product (24 for all, as placeholders).
+- **Seedling rules.** Before Seedlings ready every post-emergent fails the check and warns when logged. Triclopyr ester and Other then need 3 mows after Seedlings ready. `AreaState.seedlings_ready_on` records the press, since the first mow after it clears the seeding date; a press older than a year no longer counts. Installs that pressed it before P4 have no date, so the rule is satisfied once the seeding is cleared.
+- **Mowing hold (D15)** is a tunable (`post_hold_mowing`, on), like the other P2 "settings": until the logged date + 2 days, Mowing allowed is off with the reason, Mode reads `spray_hold` (a new overlay mode; establishment and out-of-season keep their mode), Mow due is off and days until due is at least the days left. The "don't mow until" push goes out right after the log, whatever the hold setting.
+- **Good spray day notice** goes out on the **daily run** (05:00 by default) for tomorrow, rather than an evening run: one notice a day ahead, without a second schedule. At most once every 3 days per area, only while nothing was logged in the open window. When only a coming mow fails the check, the notice says "mow first, spray 2 days later".
+- **Follow-up** (triclopyr ester 21 days; off for mesotrione and Other) is a firm calendar event, key `lawn_growth-{product}-{year}-{area}-followup-<logged date>`, and a push on its date, once (`followups_notified` in the store). A follow-up already done by a later post-emergent, or one that came due over a week before the first run, is flagged without a push.
+- **Calendar.** "Post-emergent (estimated, fall broadleaf)" while tentative, "Post-emergent window ~May 12 (spring broadleaf)" while projected, then "Post-emergent window open (spring broadleaf)" spanning open → close; the open event is firm, so P3 copies it. Logged post-emergents add "Don't mow until <date>." to their description.
+- **Entities:** per area `Post-emergent` (shows the open window, else the next to open, else the last to end), `Good spray day`, `Last post-emergent` and `Post-emergent product` (default mesotrione, stored per area). There was no "Last spot herbicide" entity to replace.
+- Store: `post_emergent_products`, `followups_notified`, and `flagged`/`spray_notified` on windows (additive; no version bump).
 
 ## Later
 

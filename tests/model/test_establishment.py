@@ -47,3 +47,11 @@ def test_ready_after_floor_when_tall_enough():
 def test_no_seeding_never_ready():
     assert establishment.looks_ready(AreaState(), today=date(2026, 9, 25), seedling_in=9.0,
                                      first_mow_target_in=3.0, tun=T) is False
+
+
+def test_mark_ready_records_the_first_press_and_seeding_clears_it():
+    s = establishment.mark_ready(AreaState(seeding_date=date(2026, 9, 20)), date(2026, 10, 9))
+    assert s.seedlings_ready_on == date(2026, 10, 9)
+    assert establishment.mark_ready(s, date(2026, 10, 12)).seedlings_ready_on == \
+        date(2026, 10, 9)                                   # pressing again keeps it
+    assert establishment.log_seeding(s, date(2027, 4, 1)).seedlings_ready_on is None

@@ -20,21 +20,31 @@ class Product:
     pre_emergent: bool          # a blanket pre-emergent: logging it closes the window
     post_emergent: bool
     block_field: str = ""       # Tunables field: days seeding is blocked after it
+    # Post-emergent label settings (Tunables fields; empty: none)
+    rainfree_field: str = ""    # hours with no rain after spraying
+    heat_field: str = ""        # a lower heat limit than the spray-day default
+    followup_field: str = ""    # days to a follow-up reminder (0: off)
+    seedling_field: str = ""    # mows after Seedlings ready before it may go on
 
 
 # Seeding waits are label placeholders (spec "Open questions"); they live in Tunables.
 PRODUCTS = {p.key: p for p in (
     Product("prodiamine", "Prodiamine", True, False, "prodiamine_seeding_block_days"),
     Product("dithiopyr", "Dithiopyr", True, False, "dithiopyr_seeding_block_days"),
-    Product("mesotrione", "Mesotrione", False, True),
+    Product("mesotrione", "Mesotrione", False, True,
+            rainfree_field="mesotrione_rainfree_hours"),
     Product("triclopyr_ester", "Triclopyr ester", False, True,
-            "triclopyr_ester_seeding_block_days"),
+            "triclopyr_ester_seeding_block_days", "triclopyr_ester_rainfree_hours",
+            "triclopyr_ester_heat_limit_f", "triclopyr_ester_followup_days",
+            "triclopyr_ester_seedling_mows"),
     Product("other_pre_emergent", "Other pre-emergent", True, False,
             "other_pre_emergent_seeding_block_days"),
     Product("other_post_emergent", "Other post-emergent", False, True,
-            "other_post_emergent_seeding_block_days"),
+            "other_post_emergent_seeding_block_days", "other_post_emergent_rainfree_hours",
+            "", "other_post_emergent_followup_days", "other_post_emergent_seedling_mows"),
 )}
 PRE_EMERGENT_PRODUCTS = tuple(k for k, p in PRODUCTS.items() if p.pre_emergent)
+POST_EMERGENT_PRODUCTS = tuple(k for k, p in PRODUCTS.items() if p.post_emergent)
 
 
 def product_label(key: str) -> str:
@@ -42,9 +52,32 @@ def product_label(key: str) -> str:
     return p.label if p else key
 
 
-def block_days(product: str, tun) -> int:
+def _setting(product: str, attr: str, tun, default=0):
     p = PRODUCTS.get(product)
-    return int(getattr(tun, p.block_field)) if p and p.block_field else 0
+    name = getattr(p, attr) if p else ""
+    return getattr(tun, name) if name else default
+
+
+def block_days(product: str, tun) -> int:
+    return int(_setting(product, "block_field", tun))
+
+
+def rainfree_hours(product: str, tun) -> int:
+    return int(_setting(product, "rainfree_field", tun, 24))
+
+
+def heat_limit_f(product: str, tun) -> float:
+    """The highest forecast high a spray day allows for this product."""
+    return min(tun.spray_max_high_f,
+               float(_setting(product, "heat_field", tun, tun.spray_max_high_f)))
+
+
+def followup_days(product: str, tun) -> int:
+    return int(_setting(product, "followup_field", tun))
+
+
+def seedling_mows(product: str, tun) -> int:
+    return int(_setting(product, "seedling_field", tun))
 
 
 @dataclass(frozen=True)
@@ -73,6 +106,10 @@ def prune(apps: list, today: date, retention_days: int) -> list:
 
 def is_pre_emergent(app: Application) -> bool:
     return app.kind == "herbicide" and app.product in PRE_EMERGENT_PRODUCTS
+
+
+def is_post_emergent(app: Application) -> bool:
+    return app.kind == "herbicide" and app.product in POST_EMERGENT_PRODUCTS
 
 
 def for_area(apps, area: str, kinds=None) -> list:

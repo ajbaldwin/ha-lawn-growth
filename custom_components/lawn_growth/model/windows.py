@@ -17,6 +17,8 @@ from typing import Optional
 from .applications import for_area, is_pre_emergent, latest
 
 KINDS = ("pre_emergent", "winterizer", "overseed")
+# Post-emergent windows (per area; postemergent.py runs them)
+POST_KINDS = ("spring_broadleaf", "fall_broadleaf", "young_crabgrass")
 STATUSES = ["tentative", "projected", "open", "done", "skipped", "missed"]
 ACTIVE = ("tentative", "projected", "open")
 LAWN = "all"
@@ -24,7 +26,8 @@ PRE_STAGES = ("heads_up", "open", "late", "germination")
 # Transitions in order, per kind (notify.py decides which ones push).
 TRANSITIONS = {"pre_emergent": (*PRE_STAGES, "missed"),
                "winterizer": ("open", "missed"),
-               "overseed": ("open", "closing", "missed")}
+               "overseed": ("open", "closing", "missed"),
+               **{k: ("open", "closed") for k in POST_KINDS}}
 FALLBACK_SOURCES = ("gdd", "air")      # estimated from air temperatures
 
 
@@ -61,6 +64,8 @@ class Window:
     last_due: Optional[date] = None         # winterizer: last day a mow was due
     cold_since: Optional[date] = None       # winterizer: first day of Soil5 < 40 °F
     wind_down_seen: bool = False
+    flagged: Optional[date] = None          # post-emergent: opened by flag_weeds
+    spray_notified: Optional[date] = None   # post-emergent: last good-spray-day notice
 
     @property
     def key(self) -> str:
@@ -82,7 +87,8 @@ class Window:
                 "set_by": self.set_by, "updated": _s(self.updated),
                 "reached": {k: dict(v) for k, v in self.reached.items()},
                 "notified": list(self.notified), "last_due": _s(self.last_due),
-                "cold_since": _s(self.cold_since), "wind_down_seen": self.wind_down_seen}
+                "cold_since": _s(self.cold_since), "wind_down_seen": self.wind_down_seen,
+                "flagged": _s(self.flagged), "spray_notified": _s(self.spray_notified)}
 
     @classmethod
     def from_dict(cls, d: dict) -> "Window":
@@ -96,7 +102,8 @@ class Window:
                    reached={k: dict(v) for k, v in (d.get("reached") or {}).items()},
                    notified=list(d.get("notified") or []), last_due=_d(d.get("last_due")),
                    cold_since=_d(d.get("cold_since")),
-                   wind_down_seen=bool(d.get("wind_down_seen", False)))
+                   wind_down_seen=bool(d.get("wind_down_seen", False)),
+                   flagged=_d(d.get("flagged")), spray_notified=_d(d.get("spray_notified")))
 
 
 @dataclass(frozen=True)
@@ -120,6 +127,7 @@ class LawnSignals:
     today: date
     gdd: Optional[float]                    # this year's GDD50 total; None if unknown
     horizon: tuple = ()                     # forecast daily means after today
+    highs: tuple = ()                       # forecast daily highs after today
 
 
 # --- seasons ---------------------------------------------------------------------
@@ -146,7 +154,10 @@ def season_end(kind: str, season: int, tun) -> date:
 
 def typical_date(kind: str, season: int, tun) -> date:
     month, day = {"pre_emergent": tun.pre_typical, "winterizer": tun.winterizer_typical,
-                  "overseed": tun.overseed_typical}[kind]
+                  "overseed": tun.overseed_typical,
+                  "spring_broadleaf": tun.post_spring_typical,
+                  "fall_broadleaf": tun.post_fall_typical,
+                  "young_crabgrass": tun.post_crabgrass_typical}[kind]
     return date(season, month, day)
 
 
@@ -497,7 +508,8 @@ def update_all(windows: dict, lawn: LawnSignals, areas, apps, tun) -> dict:
     today = lawn.today
     out = {k: w.copy() for k, w in windows.items()}
     for w in out.values():
-        if w.season < current_season(w.kind, today, tun) and w.status in ACTIVE:
+        if (w.kind in KINDS and w.season < current_season(w.kind, today, tun)
+                and w.status in ACTIVE):
             w.closed = season_end(w.kind, w.season, tun)
             w.projected = None
             _reach(w, "missed", w.closed)

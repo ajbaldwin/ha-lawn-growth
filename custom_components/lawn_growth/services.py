@@ -12,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .model.applications import PRODUCTS
+from .model.postemergent import TARGETS, WindowEnded
 from .model.windows import KINDS
 
 ATTR_DATE = "date"
@@ -21,6 +22,7 @@ ATTR_SEED_DATE = "seed_date"
 ATTR_TARGET = "target_in"
 ATTR_BUFFER = "buffer_days"
 ATTR_PRODUCT = "product"
+ATTR_TARGET_WEEDS = "target"
 
 LOG_KINDS = ("fert", "pgr", "winterizer", "herbicide")
 
@@ -38,7 +40,10 @@ SCHEMAS = {
                              vol.Optional(ATTR_PRODUCT): vol.In(list(PRODUCTS)),
                              vol.Optional(ATTR_DATE): cv.date}),
     "skip_application": vol.Schema({**_ANY_DEVICE,
-                                    vol.Required(ATTR_KIND): vol.In(KINDS)}),
+                                    vol.Required(ATTR_KIND): vol.In(
+                                        [*KINDS, "post_emergent"])}),
+    "flag_weeds": vol.Schema({**_DEVICE,
+                              vol.Required(ATTR_TARGET_WEEDS): vol.In(list(TARGETS))}),
     "prep_overseed": vol.Schema({**_DEVICE, vol.Required(ATTR_SEED_DATE): cv.date,
                                  vol.Optional(ATTR_TARGET): _HEIGHT,
                                  vol.Optional(ATTR_BUFFER): vol.All(vol.Coerce(int),
@@ -144,6 +149,14 @@ def async_register(hass: HomeAssistant) -> None:
         for coord, keys in groups:
             await coord.async_skip_application(kind, keys)
 
+    async def flag_weeds(call: ServiceCall) -> None:
+        target = call.data[ATTR_TARGET_WEEDS]
+        for coord, key in _targets(hass, call):
+            try:
+                await coord.async_flag_weeds(key, target)
+            except WindowEnded as err:
+                raise _error("window_ended", area=coord.areas[key].name) from err
+
     async def prep_overseed(call: ServiceCall) -> None:
         targets = _targets(hass, call)
         for coord, key in targets:
@@ -165,6 +178,7 @@ def async_register(hass: HomeAssistant) -> None:
     handlers = {"log_mow": log_mow, "correct_last_mow": correct_last_mow,
                 "log_seeding": log_seeding, "seedlings_ready": seedlings_ready,
                 "log_event": log_event, "skip_application": skip_application,
+                "flag_weeds": flag_weeds,
                 "prep_overseed": prep_overseed,
                 "cancel_overseed": cancel_overseed, "evaluate_now": evaluate_now}
     for name, handler in handlers.items():

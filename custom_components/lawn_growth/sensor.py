@@ -1,4 +1,5 @@
-"""Per-area sensors, plus the lawn-wide growing degree days and pre-emergent window."""
+"""Per-area sensors (with the application windows), plus the lawn-wide growing degree
+days and pre-emergent window."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import AREA_SOIL_DEPTH, DEFAULT_SOIL_DEPTH
 from .entity import LawnEntity, LawnGrowthEntity
-from .model import appcalendar, applications, soiltemp, windows
+from .model import appcalendar, applications, postemergent, soiltemp, windows
 from .model import gdd as gdd_model
 from .model.modes import MODES
 
@@ -84,7 +85,7 @@ SENSOR_SPECS = (
 
 # Sensors outside SENSOR_SPECS (their values don't come from the area result).
 EXTRA_SENSOR_KEYS = ("soil_temperature", "gdd", "pre_emergent", "winterizer",
-                     "overseed_window")
+                     "overseed_window", "post_emergent")
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -96,6 +97,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
         *(AreaWindowSensor(coordinator, key, "winterizer") for key in coordinator.areas),
         *(AreaWindowSensor(coordinator, key, "overseed")
           for key, cfg in coordinator.areas.items() if cfg.overseed_target_in is not None),
+        *(PostEmergentSensor(coordinator, key) for key in coordinator.areas),
         GddSensor(coordinator),
         PreEmergentSensor(coordinator),
     ])
@@ -287,3 +289,55 @@ class AreaWindowSensor(_WindowSensor, LawnGrowthEntity, SensorEntity):
             seeding_blocked_until=_iso(block.until) if block else None,
             seeding_block=block.text() if block else None)
         return attrs
+
+
+class PostEmergentSensor(LawnGrowthEntity, SensorEntity):
+    """A mowing area's post-emergent windows: the open one, else the next to open,
+    else the one that ended last; with the spray-day verdicts while one is open."""
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = postemergent.STATUSES
+
+    def __init__(self, coordinator, area_key: str) -> None:
+        super().__init__(coordinator, area_key, "post_emergent", "sensor")
+
+    @property
+    def _window(self):
+        c = self.coordinator
+        return postemergent.current(c.store.windows, self._area_key, dt_util.now().date(),
+                                    c.tunables)
+
+    @property
+    def native_value(self):
+        w = self._window
+        return w.status if w else None
+
+    @property
+    def extra_state_attributes(self):
+        w = self._window
+        if w is None:
+            return None
+        c, tun, key = self.coordinator, self.coordinator.tunables, self._area_key
+        today = dt_util.now().date()
+        apps = c.applications(today)
+        names = {k: a.name for k, a in c.areas.items()}
+        logs = [a for a in applications.for_area(apps, key, ("herbicide",))
+                if applications.is_post_emergent(a)]
+        last = max(logs, key=lambda a: a.date) if logs else None
+        hold = postemergent.hold_until(apps, key, today, tun)
+        due = [f.due for f in postemergent.followups(apps, tun)
+               if key in f.app.areas and f.due >= today]
+        block = applications.seeding_block(apps, key, today, tun)
+        spray = c.spray_days.get(key)
+        return {**_window_attrs(w, names, today, tun),
+                "window": w.kind,
+                "open_windows": [x.kind for x in postemergent.open_windows(
+                    c.store.windows, key, today)],
+                "flagged_date": _iso(w.flagged),
+                "product": c.post_emergent_product(key),
+                "last_application": _iso(last.date) if last else None,
+                "last_product": last.product if last else None,
+                "dont_mow_until": _iso(hold),
+                "followup_date": _iso(min(due, default=None)),
+                "seeding_blocked_until": _iso(block.until) if block else None,
+                "today": spray[0].to_dict() if spray else None,
+                "tomorrow": spray[1].to_dict() if spray else None}

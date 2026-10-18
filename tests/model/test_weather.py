@@ -61,3 +61,28 @@ def test_from_hourly_groups_by_local_date():
 def test_from_hourly_none_without_today():
     rows = [{"datetime": "2026-09-27T03:00:00+00:00", "temperature": 50}]
     assert weather.from_hourly(rows, TODAY, "°F", _ld) is None
+
+
+def _ldt(value: str):
+    from datetime import datetime
+    return datetime.fromisoformat(value).replace(tzinfo=None)
+
+
+def test_detail_reads_optional_fields_and_converts_wind():
+    daily = [{"datetime": "2026-09-26T12:00:00+00:00", "temperature": 20,
+              "precipitation_probability": 40},
+             {"datetime": "2026-09-27T12:00:00+00:00", "temperature": 21}]
+    hourly = [{"datetime": "2026-09-28T08:00:00+00:00", "temperature": 15,
+               "wind_speed": 16.09, "precipitation_probability": 5},
+              {"datetime": "2026-09-28T09:00:00+00:00", "temperature": 18},
+              {"datetime": "bad"}]
+    d = weather.detail_from(daily, hourly, temp_unit="°C", wind_unit="km/h",
+                            local_date=_ld, local_dt=_ldt)
+    assert d.days[TODAY] == weather.DayDetail(pytest.approx(68.0), 40.0)
+    assert d.days[date(2026, 9, 27)].rain_pct is None
+    first, second = d.hours
+    assert first.wind_mph == pytest.approx(10.0, abs=0.01) and first.rain_pct == 5.0
+    assert (second.wind_mph, second.rain_pct) == (None, None)
+    assert d.high_f(date(2026, 9, 28)) == pytest.approx(64.4)    # from the hourly rows
+    assert d.high_f(date(2026, 9, 29)) is None
+    assert weather.to_mph(10, "furlongs") is None

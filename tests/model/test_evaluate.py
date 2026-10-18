@@ -200,3 +200,27 @@ def test_overseed_ignored_for_warm_season():
 def test_moisture_source_passes_through():
     r, _ = run(moisture_source="fallback", moisture_sensors_used=())
     assert r.moisture_source == "fallback" and r.moisture_sensors_used == ()
+
+
+# --- the mowing hold after a post-emergent (D15) -------------------------------------
+
+def test_post_emergent_hold_turns_mowing_allowed_off():
+    r, _ = run(AreaState(accumulated_mm=40.0), no_mow_until=TODAY + timedelta(days=2))
+    assert r.mode == "spray_hold" and r.mowing_allowed is False
+    assert r.mowing_allowed_reason == "post-emergent sprayed: don't mow until Aug 11"
+    assert r.mow_due is False and r.days_until_due >= 2
+    r, _ = run(AreaState(accumulated_mm=40.0), no_mow_until=TODAY)        # over today
+    assert r.mode == "normal" and r.mowing_allowed is True and r.mow_due is True
+
+
+def test_post_emergent_hold_never_releases_an_establishment_hold():
+    seeded = AreaState(seeding_date=date(2026, 8, 1))
+    r, _ = run(seeded, no_mow_until=TODAY + timedelta(days=1))
+    assert r.mode == "establishment" and r.mowing_allowed is False
+    assert r.mowing_allowed_reason == ("establishing seedlings; post-emergent sprayed: "
+                                       "don't mow until Aug 10")
+    r, _ = run(seeded, no_mow_until=TODAY)                  # the hold ends; seedlings don't
+    assert r.mode == "establishment" and r.mowing_allowed is False
+    ready = replace(seeded, seedlings_ready=True)
+    r, _ = run(ready, no_mow_until=TODAY + timedelta(days=1))
+    assert r.mode == "spray_hold" and r.mowing_allowed is False

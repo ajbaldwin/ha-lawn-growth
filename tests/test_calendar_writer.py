@@ -13,11 +13,12 @@ from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 from custom_components.lawn_growth import const
 from custom_components.lawn_growth.calendar_writer import issue_id
 
-from .common import FLAT_68, area, daily, make_entry, register_weather, setup
+from .common import area, daily, make_entry, register_weather, setup
 
 FALL_NOW = "2026-09-26 12:00:00+00:00"        # 05:00 local
 FALL = date(2026, 9, 26)
 TARGET = "calendar.yard_log"
+WARM_75 = [(80.0, 70.0)] * 11
 
 
 class FakeCalendar(CalendarEntity):
@@ -53,7 +54,8 @@ async def _calendars(hass, *cals):
 async def _setup(hass, freezer, *targets, cals=None):
     hass.config.units = US_CUSTOMARY_SYSTEM
     freezer.move_to(FALL_NOW)
-    register_weather(hass, daily_rows=daily(FALL, FLAT_68))
+    # 75 °F: no fall window opens on the first run, so only logs are written
+    register_weather(hass, daily_rows=daily(FALL, WARM_75))
     cals = cals if cals is not None else [FakeCalendar()]
     await _calendars(hass, *cals)
     options = {const.CONF_CALENDARS: list(targets)} if targets else {}

@@ -1,8 +1,8 @@
 """Turn weather.get_forecasts responses into today's high/low + a daily horizon. Pure Python."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Callable, Optional
 
 
@@ -57,3 +57,78 @@ def from_hourly(entries, today: date, unit: str,
     temps = by_day[today]
     horizon = sorted((d, (max(v) + min(v)) / 2.0) for d, v in by_day.items() if d > today)
     return DailyTemps(max(temps), min(temps), horizon)
+
+
+# --- spray-day detail: daily highs and precipitation probability, hourly wind ------
+
+_TO_MPH = {"mph": 1.0, "km/h": 0.621371, "m/s": 2.236936, "kn": 1.150779,
+           "ft/s": 0.681818}
+
+
+def to_mph(value: float, unit: str) -> Optional[float]:
+    factor = _TO_MPH.get(unit)
+    return None if factor is None else float(value) * factor
+
+
+@dataclass(frozen=True)
+class DayDetail:
+    high_f: Optional[float] = None
+    rain_pct: Optional[float] = None        # daily precipitation probability
+
+
+@dataclass(frozen=True)
+class HourDetail:
+    when: datetime                          # local start of the hour
+    temp_f: Optional[float] = None
+    wind_mph: Optional[float] = None
+    rain_pct: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class ForecastDetail:
+    """What the spray-day check reads. Every field is optional in HA's forecast
+    schema, so each one is None when the weather integration doesn't give it."""
+    days: dict = field(default_factory=dict)      # date -> DayDetail
+    hours: tuple = ()                             # HourDetail, ascending
+
+    def high_f(self, day: date) -> Optional[float]:
+        d = self.days.get(day)
+        if d is not None and d.high_f is not None:
+            return d.high_f
+        temps = [h.temp_f for h in self.hours if h.when.date() == day
+                 and h.temp_f is not None]
+        return max(temps) if temps else None
+
+
+def _num(entry: dict, key: str) -> Optional[float]:
+    try:
+        value = float(entry[key])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return value
+
+
+def detail_from(daily, hourly, *, temp_unit: str, wind_unit: str,
+                local_date: Callable[[str], date],
+                local_dt: Callable[[str], datetime]) -> ForecastDetail:
+    days = {}
+    for e in daily or []:
+        try:
+            d = local_date(e["datetime"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        high = _num(e, "temperature")
+        days.setdefault(d, DayDetail(None if high is None else to_f(high, temp_unit),
+                                     _num(e, "precipitation_probability")))
+    hours = []
+    for e in hourly or []:
+        try:
+            when = local_dt(e["datetime"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        temp, wind = _num(e, "temperature"), _num(e, "wind_speed")
+        hours.append(HourDetail(when, None if temp is None else to_f(temp, temp_unit),
+                                None if wind is None else to_mph(wind, wind_unit),
+                                _num(e, "precipitation_probability")))
+    hours.sort(key=lambda h: h.when)
+    return ForecastDetail(days, tuple(hours))

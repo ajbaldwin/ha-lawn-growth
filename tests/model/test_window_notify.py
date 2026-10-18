@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from custom_components.lawn_growth.model import notify
 from custom_components.lawn_growth.model.applications import Application, SeedingBlock
@@ -109,3 +109,79 @@ def test_overseed_air_source_gets_the_note():
     [msg], _ = _decide([w])
     assert "Back (7-day air mean 70.4 °F)" in msg.message
     assert msg.message.endswith(notify.AIR_NOTE)
+
+
+# --- post-emergent -----------------------------------------------------------------
+
+def _post_open(kind, area, source="geodrops", value=55.3, **kw):
+    return Window(kind, 2027, area, status="open",
+                  reached={"open": {"date": TODAY.isoformat(), "source": source,
+                                    "value": value, "area": area}}, **kw)
+
+
+def test_post_emergent_window_open_shares_one_message():
+    ws = [_post_open("spring_broadleaf", "front"),
+          _post_open("spring_broadleaf", "back", source="gdd", value=260.0)]
+    msgs, out = _decide(ws)
+    [m] = msgs
+    assert m.title == "Lawn Growth — post-emergent"
+    assert m.message.startswith(
+        "Post-emergent window open (spring broadleaf) — Front & Side (soil 55.3 °F), "
+        "Back (260 growing degree days): broadleaf weeds are actively growing.")
+    assert m.message.endswith(notify.AIR_NOTE)
+    assert all(w.notified == ["open"] for w in out.values())
+    crab = _post_open("young_crabgrass", "front", expected_close=date(2027, 6, 25))
+    [m], _ = _decide([crab])
+    assert "Young crabgrass window open — Front & Side — until Jun 25" in m.message
+
+
+def _verdict(good=True, mow_first=False, skipped=()):
+    from custom_components.lawn_growth.model.postemergent import SprayDay
+    return SprayDay(TODAY, good, () if good else ("mowing",), tuple(skipped), (), mow_first)
+
+
+def test_good_spray_day_notice_at_most_every_three_days():
+    w = _post_open("spring_broadleaf", "front", notified=["open"])
+    windows = {w.key: w}
+    msgs, windows = notify.decide_spray(windows, {"front": _verdict(skipped=("wind",))},
+                                        NAMES, today=TODAY, tun=TUN)
+    assert [m.message for m in msgs] == [
+        "Good spray day tomorrow (Apr 13) — Front & Side. Spray in the morning, then "
+        "don't mow for 2 days.\nNot checked: wind (no hourly wind in the forecast)."]
+    for days, sent in ((1, 0), (2, 0), (3, 1)):
+        msgs, _ = notify.decide_spray(windows, {"front": _verdict()}, NAMES,
+                                      today=TODAY + timedelta(days=days), tun=TUN)
+        assert len(msgs) == sent, days
+
+
+def test_spray_notice_mow_first_and_none_after_a_log():
+    w = _post_open("fall_broadleaf", "back")
+    msgs, _ = notify.decide_spray({w.key: w}, {"back": _verdict(False, mow_first=True)},
+                                  NAMES, today=TODAY, tun=TUN)
+    assert msgs[0].message == ("Good spray weather tomorrow (Apr 13), but a mow is due — "
+                               "Back: mow first, spray 2 days later.")
+    sprayed = _post_open("fall_broadleaf", "back", done=TODAY)
+    assert notify.decide_spray({w.key: sprayed}, {"back": _verdict()}, NAMES,
+                               today=TODAY, tun=TUN)[0] == []
+    assert notify.decide_spray({w.key: w}, {"back": _verdict(False)}, NAMES,
+                               today=TODAY, tun=TUN)[0] == []
+
+
+def test_follow_up_reminder_once_on_its_date():
+    app = Application("herbicide", TODAY - timedelta(days=21), ("front",), "triclopyr_ester")
+    msgs, sent = notify.decide_followups([app], NAMES, [], today=TODAY - timedelta(days=1),
+                                         tun=TUN)
+    assert msgs == [] and sent == []
+    msgs, sent = notify.decide_followups([app], NAMES, [], today=TODAY, tun=TUN)
+    assert msgs[0].message.startswith("Post-emergent follow-up — Front & Side: Triclopyr "
+                                      "ester went down Mar 22.")
+    assert notify.decide_followups([app], NAMES, sent, today=TODAY, tun=TUN)[0] == []
+    old, sent = notify.decide_followups([app], NAMES, [], today=TODAY + timedelta(days=8),
+                                        tun=TUN)
+    assert old == [] and len(sent) == 1                     # flagged, not pushed
+
+
+def test_dont_mow_text():
+    assert notify.dont_mow_text(["Front & Side"], "mesotrione", date(2027, 5, 5), True) == (
+        "Front & Side: Mesotrione logged — don't mow until May 5 so it can work. "
+        "Mowing allowed stays off until then.")

@@ -111,7 +111,26 @@ skip_application:
             - pre_emergent
             - winterizer
             - overseed
+            - post_emergent
           translation_key: application_kind
+flag_weeds:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: lawn_growth
+              model: Mowing area
+    target:
+      required: true
+      selector:
+        select:
+          options:
+            - broadleaf
+            - crabgrass
+          translation_key: weed_target
 prep_overseed:
   fields:
     device_id:

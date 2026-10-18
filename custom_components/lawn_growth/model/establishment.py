@@ -10,16 +10,19 @@ def log_seeding(state: AreaState, seeded_on: date) -> AreaState:
     s = state.copy()
     s.seeding_date = seeded_on
     s.seedlings_ready = False
+    s.seedlings_ready_on = None
     s.ready_notified = False
     s.accumulated_mm = 0.0
     s.overseed = OverseedState()          # seeding hands off from overseed prep
     return s
 
 
-def mark_ready(state: AreaState) -> AreaState:
+def mark_ready(state: AreaState, today: date | None = None) -> AreaState:
     if state.seeding_date is None:
         raise ValueError("no seeding has been logged for this area")
     s = state.copy()
+    if not s.seedlings_ready:
+        s.seedlings_ready_on = today
     s.seedlings_ready = True
     return s
 

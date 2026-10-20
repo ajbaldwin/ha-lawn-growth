@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.10 — Calendars kept in step
+- **Calendars that can edit events now mirror Lawn Growth's calendar.** A Local Calendar or Google Calendar picked under Copy events to calendars now shows everything on Lawn Growth's own calendar, estimates included, and Lawn Growth moves an estimate when its date changes and removes events that no longer apply, such as a skipped window.
+- **Your own events are safe.** Lawn Growth only changes events it added (the ones whose description ends with a "Lawn Growth key" line), and leaves events older than a year in place as a record.
+- **Calendars that can only add events** still get firm events only, each added once.
+- **The README lists what Lawn Growth needs**, including internet access for the weather forecast.
+
 ## 0.1.0-beta.9 — Post-emergent
 - **Post-emergent windows per mowing area:** spring broadleaf (soil 55 °F, or 250 growing degree days without probes; closes on a forecast heat spell or after Jun 30), fall broadleaf (from Aug 15, once the 7-day air mean is 70 °F or lower; the most effective time) and young crabgrass (two weeks after crabgrass germination, only when the pre-emergent was missed, skipped or late). A new **Post-emergent** sensor shows the window. It stays open after you spray, because weeds often need a follow-up.
 - **Good spray day.** Inside an open window, Lawn Growth checks today and tomorrow for temperature (60–85 °F; triclopyr ester 80 °F), rain, morning wind, mowing, grass stress and new seedlings. The new **Good spray day** binary sensor turns on when today passes. A notification says when tomorrow looks good, at most every 3 days per area. Weather integrations that don't forecast wind or rain chance skip those checks and say so.

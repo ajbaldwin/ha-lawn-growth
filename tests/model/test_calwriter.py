@@ -127,3 +127,60 @@ def test_old_entries_for_events_no_longer_on_the_calendar_are_pruned():
     new, _ = record(ledger, DAY, reachable=True, live={"live-old"})
     assert new.written == {"gone-recent": recent, "live-old": old}
     assert new.pending == {} and new.dropped == {}
+
+
+# --- mirror mode: calendars that can delete events --------------------------------
+
+def _existing(write, uid):
+    data = write.service_data()
+    return calwriter.Existing(uid, calwriter.key_of(data["description"]), data["summary"],
+                              data["description"], write.start, write.end)
+
+
+def test_key_of_reads_the_key_line_only():
+    assert calwriter.key_of("Status: open\n\nLawn Growth key: lawn_growth-x") == "lawn_growth-x"
+    assert calwriter.key_of("a note I wrote") is None
+    assert calwriter.key_of(None) is None
+
+
+def test_mirror_creates_everything_including_estimates():
+    ws = [Window("pre_emergent", 2027),
+          Window("winterizer", 2026, "back", status="open", reached=_open(DAY, "back"))]
+    events = _events(ws)
+    creates, updates, deletes = calwriter.mirror_plan(events, [])
+    assert sorted(w.summary for w in creates) == ["Apply winterizer — Back",
+                                                  "Pre-emergent (estimated)"]
+    assert updates == [] and deletes == []
+
+
+def test_mirror_leaves_matching_events_alone():
+    events = _events([Window("pre_emergent", 2027)])
+    creates, _, _ = calwriter.mirror_plan(events, [])
+    existing = [_existing(w, f"uid-{i}") for i, w in enumerate(creates)]
+    assert calwriter.mirror_plan(events, existing) == ([], [], [])
+
+
+def test_mirror_updates_a_moved_estimate_in_place():
+    w = Window("pre_emergent", 2027, status="projected", projected=date(2027, 4, 12),
+               source="gdd", value=110.0)
+    [old] = calwriter.mirror_plan(_events([w]), [])[0]
+    moved = Window("pre_emergent", 2027, status="projected", projected=date(2027, 4, 15),
+                   source="gdd", value=110.0)
+    creates, updates, deletes = calwriter.mirror_plan(_events([moved]),
+                                                      [_existing(old, "uid-1")])
+    assert creates == [] and deletes == []
+    [(uid, new)] = updates
+    assert uid == "uid-1" and new.start == date(2027, 4, 15)
+    assert new.summary == "Pre-emergent window ~Apr 15"
+
+
+def test_mirror_deletes_what_lawn_growth_no_longer_shows_and_duplicates():
+    events = _events([Window("pre_emergent", 2027)])
+    [w] = calwriter.mirror_plan(events, [])[0]
+    gone = calwriter.Existing("uid-gone", "lawn_growth-fert-2026-back-applied-2026-10-01",
+                              "Fertilizer — Back", "Lawn Growth key: lawn_growth-fert-2026-"
+                              "back-applied-2026-10-01", date(2026, 10, 1), date(2026, 10, 2))
+    existing = [_existing(w, "uid-1"), _existing(w, "uid-2"), gone]
+    creates, updates, deletes = calwriter.mirror_plan(events, existing)
+    assert creates == [] and updates == []
+    assert sorted(deletes) == ["uid-2", "uid-gone"]

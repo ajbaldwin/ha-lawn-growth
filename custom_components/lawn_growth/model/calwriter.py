@@ -9,6 +9,11 @@ A ledger per target calendar records what was written as *atoms*, one per area:
 area's on the same day (the same product logged for a second area) then writes only
 the new area, never the first one again.
 
+Calendars that can also delete events (Local Calendar, Google Calendar) are
+*mirrored* instead: every event on Lawn Growth's calendar, estimates included, is
+kept in step there (`mirror_plan`), matched by the key line in each description.
+Events without that line are never touched.
+
 A failed write is retried on later runs. An event that keeps failing is dropped after
 `retry_days` once other writes to the same calendar succeed; while every write fails
 (the calendar is down) nothing is dropped, so the backlog lands when it comes back.
@@ -134,3 +139,53 @@ def failing(ledger: Ledger, today: date, days: int = 3) -> bool:
     """Writes have failed on `days` consecutive days (today included)."""
     return (ledger.failing_since is not None
             and (today - ledger.failing_since).days >= days - 1)
+
+
+# --- mirror mode --------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Existing:
+    """An event read back from a mirrored calendar."""
+    uid: Optional[str]
+    key: Optional[str]          # from its "Lawn Growth key:" line; None: not ours
+    summary: str
+    description: str
+    start: date
+    end: date
+
+
+def key_of(description: Optional[str]) -> Optional[str]:
+    for line in (description or "").splitlines():
+        if line.startswith(KEY_PREFIX):
+            return line[len(KEY_PREFIX):].strip() or None
+    return None
+
+
+def _write(e) -> Write:
+    return Write(e.key, atoms(e), e.summary, e.description, e.start, e.end)
+
+
+def _same(w: Write, x: Existing) -> bool:
+    data = w.service_data()
+    return (x.summary == data["summary"] and (x.description or "").strip()
+            == data["description"].strip() and (x.start, x.end) == (w.start, w.end))
+
+
+def mirror_plan(events, existing) -> tuple[list, list, list]:
+    """(creates, updates as (uid, Write), deletes as uid) that make a calendar's
+    Lawn Growth events match `events` exactly. Only events with a key are touched; a
+    key found twice keeps its first event."""
+    want = {e.key: _write(e) for e in events}
+    seen: dict = {}
+    updates, deletes = [], []
+    for x in existing:
+        if x.key is None or x.uid is None:
+            continue
+        if x.key not in want or x.key in seen:
+            deletes.append(x.uid)
+            continue
+        seen[x.key] = x
+        if not _same(want[x.key], x):
+            updates.append((x.uid, want[x.key]))
+    creates = [w for k, w in want.items() if k not in seen]
+    return creates, updates, deletes

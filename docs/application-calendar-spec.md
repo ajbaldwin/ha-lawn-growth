@@ -1,6 +1,6 @@
 # Application calendar — spec (draft)
 
-Status: 2026-10-17. P1 (§1), P2 (§2.1–2.3, §2.5, §3–4 without post-emergent), P3 (§5) and P4 (§2.4 and its parts of §3–4) are built. See "P2 as built", "P3 as built" and "P4 as built" below for the choices made where the spec left room.
+Status: 2026-10-20. P1 (§1), P2 (§2.1–2.3, §2.5, §3–4 without post-emergent), P3 (§5) and P4 (§2.4 and its parts of §3–4) are built. See "P2 as built", "P3 as built", "P4 as built" and "Mirror mode" below for the choices made where the spec left room.
 
 ## Goal
 
@@ -32,6 +32,7 @@ Advisory only, like the rest of Lawn Growth: it never applies anything. The one 
 | D14 | The post-emergent product list ships with **mesotrione**, **triclopyr ester** and Other. | 2026-10-17 |
 | D15 | **Hold Mowing allowed after a post-emergent** spray: on by default. | 2026-10-17 |
 | D16 | The phone-calendar setting takes **several calendars** ("Copy events to calendars"), each with its own ledger — e.g. a Local Calendar next to a mowing log now, Google Calendar for the phone later. | 2026-10-17 |
+| D17 | **Mirror mode:** a calendar that can delete events (Local Calendar, Google Calendar) mirrors Lawn Growth's whole calendar, estimates included, kept in step on every run. Create-only calendars keep firm events only (§5). | 2026-10-20 |
 
 ## 1. Temperature signals
 
@@ -351,9 +352,16 @@ Choices made where the spec left room (P3 and P4 build on these):
 - **Entities:** per area `Post-emergent` (shows the open window, else the next to open, else the last to end), `Good spray day`, `Last post-emergent` and `Post-emergent product` (default mesotrione, stored per area). There was no "Last spot herbicide" entity to replace.
 - Store: `post_emergent_products`, `followups_notified`, and `flagged`/`spray_notified` on windows (additive; no version bump).
 
+## Mirror mode (D17, as built)
+
+- **Which calendars:** any target whose entity supports `DELETE_EVENT`. Updates use `UPDATE_EVENT` when supported (Local Calendar), else delete + create (Google, which supports create and delete). Create-only targets keep the §5 firm-event writer and its ledger.
+- **How:** each run reads the target's events from today − 365 days to the later of today + 400 days and Lawn Growth's last event end (`async_get_events`), keeps those whose description has a `Lawn Growth key:` line, and diffs them against Lawn Growth's calendar by key (`calwriter.mirror_plan`): create the missing, update the changed (summary, description, dates), delete the rest and any duplicate of a key. Events without a key line are never touched. Lawn Growth's own events that end before the window aren't written, so an aged-out log stays in the target as a record.
+- **HA API:** creates go through the `calendar.create_event` service; updates and deletes call the entity's `async_update_event` / `async_delete_event` (looked up via the calendar component), the way HA's own `calendar/event/update` and `calendar/event/delete` websocket commands do, with the update validated by `WEBSOCKET_EVENT_SCHEMA`. HA has no services for those.
+- **Failures:** a failed read or change marks the day as failing and the next run diffs again (nothing to retry by hand). The repair rules are §5.1's: 3 consecutive failing days, cleared by a clean run.
+- **Adoption:** events written by the firm-only writer (beta.8–beta.9) carry key lines, so a Local Calendar picked then is taken over in place; keys that no longer match Lawn Growth's calendar (an area log since merged into "whole lawn") are replaced.
+
 ## Later
 
-- **Delete superseded events in Google** (e.g. a window later skipped). Needs the Google event's uid, which `create_event` doesn't return — find it with `calendar.get_events` by the key in the description — and the entity's delete method, which HA exposes only over the websocket API.
 - Learning the soil–air offset from fall/spring overlap to sharpen the GDD fallback (log it as a diagnostic in v1).
 - Grub control, lime, aeration, spring overseeding.
 

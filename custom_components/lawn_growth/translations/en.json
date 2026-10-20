@@ -18,7 +18,7 @@
           "notify_service": "Optional. Where mow-due, first-mow and overseed pushes go.",
           "run_time": "When the day's growth is added and pushes are sent.",
           "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used.",
-          "write_calendars": "Optional. Firm events (a window opening, the late pre-emergent warning, the second pre-emergent reminder and every logged application) are added to these calendars once each and never changed; estimates stay on Lawn Growth's own calendar. Pick calendars whose integration can create events, such as Local Calendar or Google Calendar (set up with read/write access)."
+          "write_calendars": "Optional. Calendars that can delete events, such as Local Calendar or Google Calendar (set up with read/write access), mirror Lawn Growth's calendar, estimates included. Calendars that can only create events get firm events (a window opening, the late pre-emergent warning, reminders, every logged application) once each. Only events Lawn Growth added are ever changed."
         }
       },
       "area_basics": {
@@ -122,7 +122,7 @@
         },
         "data_description": {
           "outdoor_temp_entity": "Optional. A weather station's air temperature, for growing degree days from observed highs and lows (back-filled from its history; adding or changing it recounts the season). Without it, the weather forecast is used.",
-          "write_calendars": "Optional. Firm events (a window opening, the late pre-emergent warning, the second pre-emergent reminder and every logged application) are added to these calendars once each and never changed; estimates stay on Lawn Growth's own calendar. Pick calendars whose integration can create events, such as Local Calendar or Google Calendar (set up with read/write access)."
+          "write_calendars": "Optional. Calendars that can delete events, such as Local Calendar or Google Calendar (set up with read/write access), mirror Lawn Growth's calendar, estimates included. Calendars that can only create events get firm events (a window opening, the late pre-emergent warning, reminders, every logged application) once each. Only events Lawn Growth added are ever changed."
         }
       },
       "mower": {
@@ -383,7 +383,7 @@
   "issues": {
     "calendar_unavailable": {
       "title": "Lawn Growth can't add events to {calendar}",
-      "description": "Lawn Growth copies firm application events to {calendar} ({entity_id}), but the calendar is missing or adding events has failed for 3 days. Waiting events are added once it works again.\n\nTo fix it, check the calendar's integration, or open Lawn Growth → Configure → Lawn settings and pick another calendar under Copy events to calendars, or remove this one."
+      "description": "Lawn Growth copies application events to {calendar} ({entity_id}), but the calendar is missing or writing to it has failed for 3 days. Lawn Growth keeps trying and catches up once it works again.\n\nTo fix it, check the calendar's integration, or open Lawn Growth → Configure → Lawn settings and pick another calendar under Copy events to calendars, or remove this one."
     }
   },
   "exceptions": {

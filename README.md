@@ -6,6 +6,11 @@ It models grass growth each day from your weather forecast (and soil moisture if
 
 It is **advisory**: it never drives a mower. It publishes entities you can show on a dashboard or use in automations (for example, have your mower automation skip an area while **Mowing allowed** is off).
 
+## Requirements
+
+- **Internet access, for the weather forecast.** Lawn Growth makes no network calls itself, but every run needs a forecast from the weather entity you pick, and most weather integrations fetch it from the internet. Without one, the day's run is skipped and retried every 15 minutes until a forecast arrives. Copying events to Google Calendar also needs internet; a Local Calendar doesn't.
+- Home Assistant 2026.3 or newer.
+
 ## Install
 
 1. In HACS, add this repository as a custom repository (category **Integration**).
@@ -133,17 +138,18 @@ These defaults (the 80 °F limit, 3 mows, 21 days, 4 weeks, 24 hours rain-free) 
 
 ### Copying events to other calendars
 
-Lawn Growth's own calendar stays inside Home Assistant. To keep the record next to your other calendars, or on your phone, pick one or more calendars under **Configure → Lawn settings → Copy events to calendars**. It's optional: leave it empty and nothing is written anywhere.
+Lawn Growth's own calendar stays inside Home Assistant. To keep the events next to your other calendars, or on your phone, pick one or more calendars under **Configure → Lawn settings → Copy events to calendars**. It's optional: leave it empty and nothing is written anywhere. How a calendar is kept depends on what its integration can do:
 
-- **What's copied:** firm events only, because a calendar entry can't be changed once written: a window opening (including "Post-emergent window open"), the pre-emergent late warning, the second (split) pre-emergent reminder, a post-emergent follow-up, and every logged application (seedings, fertilizer, PGR, winterizer, herbicides). Each is added once, as an all-day event; its description ends with a `Lawn Growth key` line.
-- **What isn't:** tentative and projected dates, overseed prep milestones and planned seed dates (they move or can be cancelled), spray-day notices, missed windows and mows. Those stay on Lawn Growth's own calendar.
-- **Which calendars:** any calendar whose integration supports creating events; the picker lists only those. For example:
-  - [Local Calendar](https://www.home-assistant.io/integrations/local_calendar/) keeps a separate calendar inside Home Assistant, such as one next to a mowing log.
-  - [Google Calendar](https://www.home-assistant.io/integrations/google/) reaches your phone through the Google Calendar app, or Apple Calendar with the Google account added. Set up Home Assistant's Google Calendar integration first, with **read/write** access (its docs cover the application credentials).
-- **When you add a calendar**, the firm events already on Lawn Growth's calendar (up to 400 days of logs) are copied to it. Taking a calendar out and adding it back doesn't copy them twice.
-- **Changes aren't copied:** a skipped window, or a seeding date you correct, leaves the earlier entry in place; delete it there by hand.
-- **When it can't write** (the calendar is gone, or adding events has failed for 3 days), a repair appears under Settings → System → Repairs. Events wait and are added once the calendar works again; the repair clears then, or when you take that calendar out of the setting.
-- Reminders still come from the Notify target. A copied event is the record, though the target calendar's own default reminders, if any, apply.
+- **Mirrored** (calendars that can delete events, such as [Local Calendar](https://www.home-assistant.io/integrations/local_calendar/) and [Google Calendar](https://www.home-assistant.io/integrations/google/)): the calendar matches Lawn Growth's own, estimates included. On every run, Lawn Growth adds new events, moves estimates whose date changed, and removes events that no longer apply (a skipped window, a corrected seeding date). Events older than a year are left alone, so aged-out logs stay as a record.
+- **Firm events only** (calendars that can create events but not delete them): a window opening (including "Post-emergent window open"), the pre-emergent late warning, the second (split) pre-emergent reminder, a post-emergent follow-up, and every logged application (seedings, fertilizer, PGR, winterizer, herbicides), each added once and never changed. Tentative and projected dates, prep milestones, planned seed dates, missed windows and mows stay on Lawn Growth's own calendar.
+
+Either way:
+
+- **Only Lawn Growth's events are touched.** Each one is an all-day event whose description ends with a `Lawn Growth key` line; events without that line (yours, or another automation's) are never changed or removed. Don't edit that line.
+- **When you add a calendar**, what's already on Lawn Growth's calendar (up to 400 days of logs) is copied to it, once.
+- **Which calendars:** the picker lists calendars whose integration can create events. Local Calendar keeps a separate calendar inside Home Assistant, such as one next to a mowing log. Google Calendar reaches your phone through the Google Calendar app, or Apple Calendar with the Google account added: set up Home Assistant's Google Calendar integration first, with **read/write** access (its docs cover the application credentials). With Google, mirrored estimates move on your phone as the forecast changes.
+- **When it can't write** (the calendar is gone, or writing to it has failed for 3 days), a repair appears under Settings → System → Repairs. Lawn Growth keeps trying; the repair clears once it works again, or when you take that calendar out of the setting.
+- Reminders still come from the Notify target. The target calendar's own default reminders, if any, also apply.
 
 ## How it works
 

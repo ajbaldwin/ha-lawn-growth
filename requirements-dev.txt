@@ -2,3 +2,4 @@ pytest
 pytest-asyncio
 pytest-cov
 pytest-homeassistant-custom-component==0.13.316
+ical==13.2.0          # Local Calendar, for tests/test_local_calendar.py (pin = HA 2026.2.3)

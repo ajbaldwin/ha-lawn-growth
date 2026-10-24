@@ -124,12 +124,12 @@ The thresholds are anchored on germination at about 200 GDD50 (Purdue citing Cal
 
 **Lawn-wide window.** One window for the whole lawn. With probes, the **warmest** area's Soil5 drives it (the first place crabgrass can germinate). Areas still on GDD use the lawn-wide GDD; if any area has probes and others don't, the earlier trigger wins. The status sensor and event say which area or source set it.
 
-**Products.** Every herbicide log carries a product. Per-product settings, with defaults that must be checked against the label actually used:
+**Products.** Every herbicide log carries a product. Per-product settings; the defaults come from typical product labels for each active ingredient (rates and intervals vary by product, so the label actually used wins):
 
 | Product | Type | Seeding blocked after application | Notes |
 |---|---|---|---|
-| Prodiamine | pre-emergent, blanket | 16 weeks | Typical first spring application |
-| Dithiopyr | pre-emergent, blanket | 12 weeks | Also controls very young crabgrass, so it still works after "germination expected" |
+| Prodiamine | pre-emergent, blanket | 4 months (the label's interval at its lowest rate; higher rates need 5–6 months in the North, more in the South) | Typical first spring application. On new grass: not within 60 days of seeding or before the second mowing, whichever is longer |
+| Dithiopyr | pre-emergent, blanket | 12 weeks (8 weeks when overseeding with perennial ryegrass) | Also controls very young crabgrass, so it still works after "germination expected". On new grass: only once well established |
 | Mesotrione | pre + post, spot, per area | none — safe at seeding | Used with the fall overseed. Post-emergent use on new seedlings: warn if logged before the area's Seedlings ready |
 | Other | as configured | setting | — |
 
@@ -137,7 +137,7 @@ Logging any product with a blocking period makes the window `done`.
 
 **Second (split) application.** On by default (an early prodiamine plus a later dithiopyr is a common split). A reminder N weeks after the first is logged (default 7) suggests dithiopyr, a fixed-date event with no trigger. After "germination expected" with nothing logged, the late notification suggests dithiopyr for its early post-emergent action before the window is called missed.
 
-**Seeding conflict.** The latest blocking product's period runs from its logged date. Inside it, `prep_overseed` and the overseed window warn ("Prodiamine applied Apr 8 — seeding blocked until Jul 29"). Logging a blocking product on an area that's establishing warns too. Mesotrione never blocks.
+**Seeding conflict.** The latest blocking product's period runs from its logged date. Inside it, `prep_overseed` and the overseed window warn ("Prodiamine applied Apr 8 — seeding blocked until Aug 8"). Logging a blocking product on an area that's establishing warns too, and so does logging prodiamine after Seedlings ready but within 60 days or 2 mows of the logged seeding. Mesotrione never blocks.
 
 ### 2.2 Winterizer (late fall)
 
@@ -171,12 +171,12 @@ Ties into the existing overseed feature:
 
 Post-emergent timing depends on two things: the **season window** (weeds actively growing, grass not stressed) and the **spray day** (weather and mowing around the application). Per area, since post-emergent goes on as spot or area treatments.
 
-**Products** (same product-aware log as §2.1; defaults to check against the label):
+**Products** (same product-aware log as §2.1; defaults from typical labels, except where marked):
 
 | Product | Targets | Wait before seeding | New seedlings | Notes |
 |---|---|---|---|---|
 | Mesotrione | broadleaf, crabgrass, nimblewill | none | warn before Seedlings ready | Also pre-emergent; safe at seeding (§2.1) |
-| Triclopyr ester | violets, ground ivy, clover, other hard broadleaf weeds | 4 weeks | block until the area has had 3 mows after Seedlings ready | Ester formulations turn volatile in heat: heat limit **80 °F** (also checked against tomorrow's high) |
+| Triclopyr ester | violets, ground ivy, clover, other hard broadleaf weeds | 3 weeks | block until the area has had 3 mows after Seedlings ready (the label: mowed 2 or 3 times) | Ester formulations turn volatile in heat: heat limit **80 °F** (also checked against tomorrow's high). The label sets no temperature limit, only warns of volatility in heat, so 80 °F is our margin. The label says not to water for 24 hours, which the 24 h rain-free check matches |
 | Other | as configured | setting | setting | e.g. three-way (2,4-D + dicamba + MCPP), quinclorac |
 
 **Season windows** (per area; the source rules from §1 apply):
@@ -312,7 +312,7 @@ Lawn Growth is published for other people, so the phone calendar must work for i
 
 Choices made where the spec left room (P3 and P4 build on these):
 
-- **Products.** "Other" is two products, `other_pre_emergent` and `other_post_emergent`, so a log always says whether it counts as a pre-emergent. The Pre-emergent product select offers prodiamine, dithiopyr and other (pre-emergent). Any pre-emergent product makes the window done (other pre-emergent: 12-week seeding wait, a placeholder like the rest). Mesotrione and the post-emergents never close the pre-emergent window.
+- **Products.** "Other" is two products, `other_pre_emergent` and `other_post_emergent`, so a log always says whether it counts as a pre-emergent. The Pre-emergent product select offers prodiamine, dithiopyr and other (pre-emergent). Any pre-emergent product makes the window done (other pre-emergent: 12-week seeding wait, a placeholder). Mesotrione and the post-emergents never close the pre-emergent window.
 - **Seeding block** is the block that ends last among the area's logged products (not only the most recent log), so a short triclopyr wait doesn't hide a longer prodiamine one.
 - **Seasons.** Pre-emergent is evaluated Jan 1 – Jun 30; from Jul 1 the next spring's window shows as tentative, and an unfinished window closes as missed. Winterizer and overseed are evaluated from Aug 1 to Dec 31. Fall soil passing back through 47–55 °F never touches the pre-emergent.
 - **Pre-emergent notifications** are heads-up, apply now, late, germination expected (the dithiopyr suggestion) and missed. When several stages are new at once (a first run in late spring), only the latest is sent. The split reminder also pushes on its date.
@@ -344,7 +344,7 @@ Choices made where the spec left room (P3 and P4 build on these):
 - **Young crabgrass** exists only when the pre-emergent window reached "germination expected" and no pre-emergent was logged before that date (missed, skipped, still nothing, or logged on/after germination). It's projected for germination + 14 days, then open for 42 days. Before germination there's no window and nothing on the calendar.
 - **`flag_weeds`** opens the target's window today (broadleaf: the spring window through Jun 30, else the fall window; crabgrass: young crabgrass). An open window is left as it is, a skipped one reopens, a `done`/`closed` one raises `window_ended`. A flagged open doesn't push "window open" (the user just said so).
 - **`skip_application` `post_emergent`** skips the area's open windows, or else the next one to open.
-- **Spray-day check** (`postemergent.spray_day`) for today and tomorrow while a window is open: temperature (high 60 °F to the product's limit; triclopyr ester 80 °F, also against the next day's high), rain (max hourly probability < 30 % from 08:00 for the product's rain-free hours, else the daily probability), wind (max hourly wind < 10 mph from 06:00 to 12:00), mowing (last mow ≥ 2 days before; no mow due within 2 days after), stress (dormant, heat hold for that day's high, water factor < 0.5), seedlings. Rain-free hours are per product (24 for all, as placeholders).
+- **Spray-day check** (`postemergent.spray_day`) for today and tomorrow while a window is open: temperature (high 60 °F to the product's limit; triclopyr ester 80 °F, also against the next day's high), rain (max hourly probability < 30 % from 08:00 for the product's rain-free hours, else the daily probability), wind (max hourly wind < 10 mph from 06:00 to 12:00), mowing (last mow ≥ 2 days before; no mow due within 2 days after), stress (dormant, heat hold for that day's high, water factor < 0.5), seedlings. Rain-free hours are per product (24 for all: triclopyr ester's label says not to water for 24 hours; the others are placeholders).
 - **Seedling rules.** Before Seedlings ready every post-emergent fails the check and warns when logged. Triclopyr ester and Other then need 3 mows after Seedlings ready. `AreaState.seedlings_ready_on` records the press, since the first mow after it clears the seeding date; a press older than a year no longer counts. Installs that pressed it before P4 have no date, so the rule is satisfied once the seeding is cleared.
 - **Mowing hold (D15)** is a tunable (`post_hold_mowing`, on), like the other P2 "settings": until the logged date + 2 days, Mowing allowed is off with the reason, Mode reads `spray_hold` (a new overlay mode; establishment and out-of-season keep their mode), Mow due is off and days until due is at least the days left. The "don't mow until" push goes out right after the log, whatever the hold setting.
 - **Good spray day notice** goes out on the **daily run** (05:00 by default) for tomorrow, rather than an evening run: one notice a day ahead, without a second schedule. At most once every 3 days per area, only while nothing was logged in the open window. When only a coming mow fails the check, the notice says "mow first, spray 2 days later".
@@ -368,7 +368,9 @@ Choices made where the spec left room (P3 and P4 build on these):
 
 ## Open questions
 
-1. **Label defaults:** the seeding waits (prodiamine 16 weeks, dithiopyr 12 weeks, triclopyr ester 4 weeks), the triclopyr seedling rule (3 mows after Seedlings ready) and its 80 °F heat limit are placeholders. Check them against the product labels.
+None open.
+
+Resolved against product labels for each active ingredient: the seeding waits (prodiamine 4 months, the label's lowest-rate interval; dithiopyr 12 weeks; triclopyr ester 3 weeks), prodiamine on new grass (60 days and 2 mows after seeding), and the triclopyr seedling rule (3 mows after Seedlings ready, the top of the label's 2–3). The triclopyr 80 °F limit and the 24 h rain-free time for mesotrione and Other stay as our margins: the labels checked give no number. Not modelled: prodiamine's rate (the wait grows with it) and its watering-in (0.2″ within 14 days).
 
 Resolved 2026-10-17: scope (D5), probe depths (D7), `hardware_check` (D9), products (D10), blanket vs spot (D11), typical dates (D12), winterizer rule (D13), post-emergent products (D14), mowing hold (D15).
 

@@ -100,7 +100,7 @@ Each window goes **tentative** (no signal yet; shown on a typical date) → **pr
 Soil here is the 5-day Soil temperature. The pre-emergent follows the warmest area's probes, or growing degree days for areas without them, whichever triggers first.
 
 - **Notifications** (to the Notify target, once per window per season): pre-emergent heads-up (47 °F and rising / 75 GDD — time to buy product), apply now, late warning (53 °F / 175 GDD), germination expected (suggests dithiopyr, which still controls very young crabgrass) and missed; winterizer open; overseed open and closing in about a week; and "soil probes back online" when an area switches from growing degree days back to its probes (about 3 days of good readings after they go back in). Areas crossing together share one message. Alerts set from air temperatures say so.
-- **Products and seeding.** Logging a pre-emergent makes the window done. Prodiamine blocks seeding for 16 weeks, dithiopyr 12, triclopyr ester 4; mesotrione never blocks. These are placeholder defaults: check the label of the product you use. A Prepare for overseeding seed date inside a block, or a blocking product on an area that's establishing, sends a warning. Seven weeks after the first pre-emergent, a reminder suggests a second (split) application of dithiopyr, and the Pre-emergent product select suggests dithiopyr.
+- **Products and seeding.** Logging a pre-emergent makes the window done. Prodiamine blocks seeding for 4 months, dithiopyr 12 weeks, triclopyr ester 3 weeks; mesotrione never blocks. These come from typical labels; prodiamine's wait is its label's lowest-rate interval, and a higher rate needs longer, so check the label of the product you use. A Prepare for overseeding seed date inside a block, or a blocking product on an area that's establishing, sends a warning. So does prodiamine on grass seeded less than 60 days ago or mowed fewer than 2 times since, as its label says. Seven weeks after the first pre-emergent, a reminder suggests a second (split) application of dithiopyr, and the Pre-emergent product select suggests dithiopyr.
 - **The calendar** shows the windows (projections move with the forecast), a "Start overseed prep" milestone, a planned overseed seed date in place of its window, post-emergent follow-ups, and logged seedings, fertilizer, PGR, winterizer and herbicides ("Prodiamine — whole lawn") for 400 days. Same-day events across areas merge. Mows aren't shown.
 
 ### Post-emergent
@@ -130,11 +130,11 @@ Weather integrations differ: hourly forecasts, wind and rain chance are all opti
 
 - A notification says "don't mow until" 2 days later, and **Mowing allowed** turns off for that area until then, so a robot mower stays off. Mode reads "hold after spraying" and Mowing allowed's `reason` says why. While seedlings are establishing, the hold only adds to the establishment hold: Seedlings ready is still the only way to turn mowing back on.
 - Triclopyr ester gets a follow-up reminder 21 days later (a notification and a calendar event). Mesotrione has none.
-- Its wait before seeding (triclopyr ester 4 weeks) feeds the same seeding check as the pre-emergents. Logging it on an area with new seedlings sends a warning.
+- Its wait before seeding (triclopyr ester 3 weeks) feeds the same seeding check as the pre-emergents. Logging it on an area with new seedlings sends a warning.
 
 **Notifications:** a window opening; "Good spray day tomorrow", at most once every 3 days per area while a window is open and nothing has been sprayed in it; "don't mow until" after a log; and the follow-up reminder.
 
-These defaults (the 80 °F limit, 3 mows, 21 days, 4 weeks, 24 hours rain-free) are placeholders: check the label of the product you use.
+These defaults come from typical labels (3 mows, 21 days, 3 weeks, 24 hours without watering), except the 80 °F limit, which is a safety margin: the label only warns that heat makes the ester volatile. Check the label of the product you use.
 
 ### Copying events to other calendars
 

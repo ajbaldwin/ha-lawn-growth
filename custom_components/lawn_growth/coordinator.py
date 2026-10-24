@@ -496,6 +496,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                                         f"{applications.product_label(product)} logged, but "
                                         f"{why}. It can injure new grass.")
             elif kind == "herbicide" and applications.block_days(product, self.tunables) > 0:
+                earlier = [a for a in self.store.applications if a.date <= on]
                 for key in keys:
                     s = self.store.areas[key]
                     if s.seeding_date is not None and not s.seedlings_ready:
@@ -504,6 +505,14 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                             f"{applications.fmt_day(s.seeding_date)}): "
                             f"{applications.product_label(product)} can keep the "
                             f"seedlings from rooting.")
+                        continue
+                    why = applications.new_turf_wait(
+                        product, applications.latest(earlier, key, ("seeding",)),
+                        tuple(r.date for r in s.mow_records), on, self.tunables)
+                    if why:
+                        warnings.append(f"{self.areas[key].name}: "
+                                        f"{applications.product_label(product)} logged, but "
+                                        f"{why}. It can injure new grass.")
             await self.store.async_save()
         await self.async_run()
         for text in warnings:

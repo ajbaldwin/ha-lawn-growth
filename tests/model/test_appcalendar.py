@@ -65,7 +65,7 @@ def test_done_window_shows_history_and_the_split_reminder():
         ("Second pre-emergent (dithiopyr)", date(2027, 6, 3), date(2027, 6, 4))]
     log = events[1]
     assert log.key == "lawn_growth-prodiamine-2027-all-applied-2027-04-15"
-    assert log.description == "Pre-emergent applied. Seeding blocked until Aug 5."
+    assert log.description == "Pre-emergent applied. Seeding blocked until Aug 15."
     assert all(e.firm for e in events)
 
 
@@ -183,7 +183,7 @@ def test_post_emergent_windows_and_follow_ups_on_the_calendar():
         "Post-emergent window open (spring broadleaf) — Back", date(2027, 5, 2),
         date(2027, 7, 1), True)
     log = by_key["lawn_growth-triclopyr_ester-2027-back-applied-2027-05-04"]
-    assert log.description == "Seeding blocked until Jun 1. Don't mow until May 6."
+    assert log.description == "Seeding blocked until May 25. Don't mow until May 6."
     fu = by_key["lawn_growth-triclopyr_ester-2027-back-followup-2027-05-04"]
     assert (fu.summary, fu.start, fu.firm) == (
         "Post-emergent follow-up — Back", date(2027, 5, 25), True)

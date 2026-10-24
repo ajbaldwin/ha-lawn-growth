@@ -16,6 +16,7 @@ def _full():
         history=[DayRecord(date(2026, 9, 25), 55.0, 0.6, 3.9)],
         target_in=3.45, phase="active", target_changed_on=date(2026, 9, 21),
         green_up_start=date(2026, 3, 30), was_in_season=True, mow_source_last="7.0",
+        soil_source_last="gdd",
         soil_days={"2026-09-24": {"mean_f": 58.5, "coverage": 0.9},
                    "2026-09-25": {"mean_f": None, "coverage": 0.3}})
 

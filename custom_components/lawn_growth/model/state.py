@@ -88,6 +88,7 @@ class AreaState:
     mow_source_last: Optional[str] = None
     log_mow_height_in: Optional[float] = None    # Log mow height; None = last cut
     soil_days: dict = field(default_factory=dict)          # iso date -> {"mean_f", "coverage"}
+    soil_source_last: Optional[str] = None       # on the last daily run; None = no probes
 
     @property
     def last_cut_in(self) -> Optional[float]:
@@ -121,6 +122,7 @@ class AreaState:
             "mow_source_last": self.mow_source_last,
             "log_mow_height_in": self.log_mow_height_in,
             "soil_days": {k: dict(v) for k, v in self.soil_days.items()},
+            "soil_source_last": self.soil_source_last,
         }
 
     @classmethod
@@ -149,4 +151,5 @@ class AreaState:
             mow_source_last=d.get("mow_source_last"),
             log_mow_height_in=d.get("log_mow_height_in"),
             soil_days={k: dict(v) for k, v in d.get("soil_days", {}).items()},
+            soil_source_last=d.get("soil_source_last"),
         )

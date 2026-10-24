@@ -102,6 +102,15 @@ def new_turf_wait(product: str, seeded: Optional[date], mows, day: date,
             f"so far)")
 
 
+def new_turf_waits(apps, mows: dict, day: date, tun, product: str = "prodiamine") -> dict:
+    """{area: why} for the areas (keys of `mows`, area -> mow dates) where this
+    pre-emergent must still wait on grass seeded as logged on or before `day`."""
+    past = [a for a in apps if a.date <= day]
+    waits = {k: new_turf_wait(product, latest(past, k, ("seeding",)), m, day, tun)
+             for k, m in mows.items()}
+    return {k: why for k, why in waits.items() if why is not None}
+
+
 @dataclass(frozen=True)
 class Application:
     kind: str                   # LOG_KINDS

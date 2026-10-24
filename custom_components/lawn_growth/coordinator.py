@@ -274,7 +274,8 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
             blocks = {k: applications.seeding_block(apps, k, today, tun) for k in results}
             names = {k: c.name for k, c in self.areas.items()}
             messages, self.store.windows = notify.decide_windows(
-                self.store.windows, names, apps=apps, tun=tun, today=today, blocks=blocks)
+                self.store.windows, names, apps=apps, tun=tun, today=today, blocks=blocks,
+                new_turf=self.new_turf_waits(today))
             spray, self.store.windows = notify.decide_spray(
                 self.store.windows, {k: v[1] for k, v in self.spray_days.items() if v},
                 names, today=today, tun=tun)
@@ -308,6 +309,17 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
             mows=tuple((r.date, k) for k, s in self.store.areas.items()
                        for r in s.mow_records))
 
+    def new_turf_waits(self, today: date) -> dict:
+        """{area key: why} for the areas where prodiamine must wait on new turf."""
+        mows = {k: tuple(r.date for r in s.mow_records)
+                for k, s in self.store.areas.items() if k in self.areas}
+        return applications.new_turf_waits(self.applications(today), mows, today,
+                                           self.tunables)
+
+    def new_turf_everywhere(self, today: date) -> bool:
+        """True when prodiamine must wait in every configured area."""
+        return bool(self.areas) and len(self.new_turf_waits(today)) == len(self.areas)
+
     def window(self, kind: str, area: str = windows.LAWN):
         return windows.current(self.store.windows, kind, dt_util.now().date(),
                                self.tunables, area)
@@ -326,7 +338,9 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
     def pre_emergent_product(self) -> str:
         """The Pre-emergent product select: the user's pick, else the suggestion."""
         return (self.store.pre_emergent_product
-                or windows.suggested_pre_product(self.window("pre_emergent")))
+                or windows.suggested_pre_product(
+                    self.window("pre_emergent"),
+                    self.new_turf_everywhere(dt_util.now().date())))
 
     def _find_soil_probes(self) -> None:
         self.soil_probes = {

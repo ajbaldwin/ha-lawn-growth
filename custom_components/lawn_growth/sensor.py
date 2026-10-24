@@ -252,7 +252,8 @@ class PreEmergentSensor(_WindowSensor, LawnEntity, SensorEntity):
                 "product": w.product or None,
                 "seeding_blocked_until": _iso(max((b.until for b in blocks), default=None)),
                 "split_reminder_date": _iso(windows.split_reminder_date(w, apps, tun)),
-                "suggested_product": windows.suggested_pre_product(w)}
+                "suggested_product": windows.suggested_pre_product(
+                    w, c.new_turf_everywhere(today))}
 
 
 class AreaWindowSensor(_WindowSensor, LawnGrowthEntity, SensorEntity):

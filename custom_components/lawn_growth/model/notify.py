@@ -93,7 +93,7 @@ def _signal(info: dict, names: dict) -> str:
     return f"7-day air mean {value:.1f} °F"
 
 
-def _pre_text(transition: str, w, names: dict, tun) -> str:
+def _pre_text(transition: str, w, names: dict, tun, new_turf: dict | None = None) -> str:
     info = w.reached.get(transition, {})
     signal = _signal(info, names)
     gdd = info.get("source") == "gdd"
@@ -115,6 +115,10 @@ def _pre_text(transition: str, w, names: dict, tun) -> str:
     else:
         when = fmt_day(w.closed) if w.closed else "the close date"
         return f"Pre-emergent window missed: nothing logged by {when}."
+    if transition in ("open", "late"):
+        for area, why in (new_turf or {}).items():
+            text += (f"\n{names.get(area, area)}: skip it or use dithiopyr there — "
+                     f"for prodiamine, {why}.")
     return f"{text}\n{AIR_NOTE}" if info.get("source") in FALLBACK_SOURCES else text
 
 
@@ -168,12 +172,13 @@ def _area_text(kind: str, transition: str, ws, names: dict, blocks: dict, tun) -
 
 
 def decide_windows(windows: dict, names: dict, *, apps, tun, today: date,
-                   blocks: dict | None = None):
+                   blocks: dict | None = None, new_turf: dict | None = None):
     """Pushes for window transitions not yet notified: once per transition per window
     per season. Only the latest new transition of a window pushes (a first run in
     late spring doesn't send four pre-emergent alerts); areas crossing the same
     transition on the same run share one message. Done and skipped windows push
-    nothing except the split-application reminder."""
+    nothing except the split-application reminder. `new_turf` (area -> why prodiamine
+    must wait there) adds a line per area to the open and late pre-emergent pushes."""
     out_windows = {k: w.copy() for k, w in windows.items()}
     pending: dict = {}
     for key, w in out_windows.items():
@@ -199,7 +204,8 @@ def decide_windows(windows: dict, names: dict, *, apps, tun, today: date,
         title = f"{TITLE} — {_TITLES[kind]}"
         if kind == "pre_emergent":
             for w, text in items:
-                messages.append(Message(title, text or _pre_text(transition, w, names, tun)))
+                messages.append(Message(title, text or _pre_text(transition, w, names, tun,
+                                                             new_turf)))
         else:
             messages.append(Message(title, _area_text(kind, transition,
                                                       [w for w, _ in items], names,

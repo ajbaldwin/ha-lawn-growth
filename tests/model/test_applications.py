@@ -99,3 +99,15 @@ def test_new_turf_wait_only_for_prodiamine_and_a_recent_seeding():
     # a seeding after the application date isn't on the treated grass
     assert ap.new_turf_wait("prodiamine", SEEDED, (), date(2026, 8, 20), TUN) is None
     assert ap.new_turf_wait("prodiamine", SEEDED, (), date(2027, 9, 10), TUN) is None
+
+
+def test_new_turf_waits_per_area_from_the_logged_seeding():
+    apps = [Application("seeding", date(2025, 9, 1), ("front",)),        # too old
+            Application("seeding", SEEDED, ("back",)),
+            Application("seeding", date(2026, 10, 20), ("back",))]       # after the day
+    mows = {"front": (), "back": (date(2026, 9, 20),), "side": ()}
+    assert ap.new_turf_waits(apps, mows, date(2026, 10, 1), TUN) == {
+        "back": ("the label says to wait 60 days and 2 mows after seeding (seeded Sep 1: "
+                 "30 days, 1 mow so far)")}
+    done = {"back": (date(2026, 9, 20), date(2026, 10, 4))}
+    assert ap.new_turf_waits(apps[:2], done, date(2026, 11, 5), TUN) == {}

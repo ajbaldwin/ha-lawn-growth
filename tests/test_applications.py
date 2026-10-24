@@ -166,6 +166,29 @@ async def test_pre_emergent_from_gdd_with_one_alert(hass, freezer, hass_storage)
     assert len(calls) == 1                                   # once per transition
 
 
+
+async def test_pre_emergent_push_names_areas_inside_prodiamines_wait(hass, freezer,
+                                                                    hass_storage):
+    seeded = [{"kind": "seeding", "date": "2027-03-01", "areas": ["back"]}]
+    c, _, calls = await _setup(hass, freezer, hass_storage, now=SPRING_NOW, today=SPRING,
+                               gdd=130.0, notify=True, applications=seeded)
+    assert hass.states.get(PRE).attributes["suggested_product"] == "prodiamine"
+    await _call(hass, "evaluate_now")
+    [msg] = [call.data["message"] for call in calls]
+    assert ("\nBack: skip it or use dithiopyr there — for prodiamine, the label says to "
+            "wait 60 days and 2 mows after seeding (seeded Mar 1: 42 days, 0 mows so "
+            "far).\n") in msg
+    assert "Front:" not in msg
+
+
+async def test_pre_emergent_suggests_dithiopyr_while_every_area_is_new_turf(
+        hass, freezer, hass_storage):
+    seeded = [{"kind": "seeding", "date": "2027-03-01", "areas": ["front", "back"]}]
+    await _setup(hass, freezer, hass_storage, now=SPRING_NOW, today=SPRING, gdd=130.0,
+                 applications=seeded)
+    assert hass.states.get(PRE).attributes["suggested_product"] == "dithiopyr"
+    assert hass.states.get("select.lawn_growth_pre_emergent_product").state == "dithiopyr"
+
 async def test_last_pre_emergent_logs_every_area_with_the_select(hass, freezer,
                                                                  hass_storage):
     c, _, _ = await _setup(hass, freezer, hass_storage, now=SPRING_NOW, today=SPRING,

@@ -177,6 +177,9 @@ def test_suggested_product():
     assert wm.suggested_pre_product(_pre(gdd=130.0)) == "prodiamine"
     assert wm.suggested_pre_product(_pre(gdd=201.0)) == "dithiopyr"
     assert wm.suggested_pre_product(_pre(apps=[_herb("prodiamine", SPRING)])) == "dithiopyr"
+    # every area inside prodiamine's new-turf wait
+    assert wm.suggested_pre_product(None, new_turf_everywhere=True) == "dithiopyr"
+    assert wm.suggested_pre_product(_pre(gdd=130.0), new_turf_everywhere=True) == "dithiopyr"
 
 
 def test_out_of_season_pre_emergent_is_not_evaluated():

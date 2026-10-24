@@ -15,9 +15,9 @@ def _reached(*stages, source="gdd", value=130.0, area="", on=TODAY):
             for s in stages}
 
 
-def _decide(windows, apps=(), blocks=None, today=TODAY):
+def _decide(windows, apps=(), blocks=None, today=TODAY, new_turf=None):
     return notify.decide_windows({w.key: w for w in windows}, NAMES, apps=list(apps),
-                                 tun=TUN, today=today, blocks=blocks)
+                                 tun=TUN, today=today, blocks=blocks, new_turf=new_turf)
 
 
 def test_open_once_per_window_with_the_air_note():
@@ -37,6 +37,39 @@ def test_soil_alert_names_the_area_and_has_no_air_note():
     [msg], _ = _decide([w])
     assert msg.message == ("Pre-emergent heads-up: soil 47.3 °F in Back. Time to buy "
                            "product — the window opens at 50 °F.")
+
+
+WAIT = ("the label says to wait 60 days and 2 mows after seeding (seeded Mar 1: "
+        "42 days, 0 mows so far)")
+
+
+def test_open_names_areas_inside_prodiamines_new_turf_wait():
+    w = Window("pre_emergent", 2027, status="open", reached=_reached("heads_up", "open"))
+    [msg], _ = _decide([w], new_turf={"back": WAIT})
+    assert msg.message == (
+        "Apply pre-emergent now: 130 growing degree days. Crabgrass germination is "
+        "expected around 200 GDD.\nBack: skip it or use dithiopyr there — for prodiamine, "
+        f"{WAIT}.\n" + notify.AIR_NOTE)
+
+
+def test_late_names_every_area_inside_the_wait():
+    w = Window("pre_emergent", 2027, status="open", notified=["heads_up", "open"],
+               reached=_reached("heads_up", "open", "late", source="geodrops",
+                                value=55.2, area="front"))
+    [msg], _ = _decide([w], new_turf={"front": WAIT, "back": WAIT})
+    assert msg.message == (
+        "Pre-emergent late — apply now: soil 55.2 °F in Front & Side. Crabgrass "
+        f"germination is close.\nFront & Side: skip it or use dithiopyr there — for "
+        f"prodiamine, {WAIT}.\nBack: skip it or use dithiopyr there — for prodiamine, "
+        f"{WAIT}.")
+
+
+def test_new_turf_note_only_on_open_and_late():
+    """The heads-up is days early and germination already suggests dithiopyr."""
+    for stages in (("heads_up",), ("heads_up", "open", "late", "germination")):
+        w = Window("pre_emergent", 2027, status="open", reached=_reached(*stages))
+        [msg], _ = _decide([w], new_turf={"back": WAIT})
+        assert "skip it" not in msg.message, stages
 
 
 def test_germination_suggests_dithiopyr():

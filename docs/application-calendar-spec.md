@@ -137,7 +137,7 @@ Logging any product with a blocking period makes the window `done`.
 
 **Second (split) application.** On by default (an early prodiamine plus a later dithiopyr is a common split). A reminder N weeks after the first is logged (default 7) suggests dithiopyr, a fixed-date event with no trigger. After "germination expected" with nothing logged, the late notification suggests dithiopyr for its early post-emergent action before the window is called missed.
 
-**Seeding conflict.** The latest blocking product's period runs from its logged date. Inside it, `prep_overseed` and the overseed window warn ("Prodiamine applied Apr 8 — seeding blocked until Aug 8"). Logging a blocking product on an area that's establishing warns too, and so does logging prodiamine after Seedlings ready but within 60 days or 2 mows of the logged seeding. Mesotrione never blocks.
+**Seeding conflict.** The latest blocking product's period runs from its logged date. Inside it, `prep_overseed` and the overseed window warn ("Prodiamine applied Apr 8 — seeding blocked until Aug 8"). Logging a blocking product on an area that's establishing warns too, and so does logging prodiamine after Seedlings ready but within 60 days or 2 mows of the logged seeding. The window applies the same rule before anything goes down: while an area is inside prodiamine's new-grass wait (from its latest logged seeding and the mows since), the apply-now and late pushes name it and say to skip it or use dithiopyr there, whose label only asks for established turf; and while every area is inside it, the Pre-emergent product select suggests dithiopyr. Mesotrione never blocks.
 
 ### 2.2 Winterizer (late fall)
 

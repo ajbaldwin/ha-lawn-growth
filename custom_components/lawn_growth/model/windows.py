@@ -283,10 +283,12 @@ def split_reminder_date(w: Window, apps, tun) -> Optional[date]:
     return w.done + timedelta(days=tun.split_reminder_days)
 
 
-def suggested_pre_product(w: Optional[Window]) -> str:
-    """Prodiamine first; dithiopyr for the split, or once germination is expected
-    (it still controls very young crabgrass)."""
-    if w is not None and (w.done is not None or "germination" in w.reached):
+def suggested_pre_product(w: Optional[Window], new_turf_everywhere: bool = False) -> str:
+    """Prodiamine first; dithiopyr for the split, once germination is expected (it
+    still controls very young crabgrass), or when every area is new turf (its label
+    only needs established turf; prodiamine's says 60 days and 2 mows after seeding)."""
+    if new_turf_everywhere or (w is not None
+                               and (w.done is not None or "germination" in w.reached)):
         return "dithiopyr"
     return "prodiamine"
 

@@ -200,6 +200,18 @@ async def test_blocking_product_on_an_establishing_area_warns(hass, freezer, cap
     assert hass.states.get("binary_sensor.lawn_growth_back_mowing_allowed").state == "off"
 
 
+async def test_prodiamine_on_young_grass_warns_after_seedlings_ready(hass, freezer):
+    c, dev, calls = await _setup(hass, freezer, notify=True)
+    await _call(hass, "log_seeding", device_id=dev["back"], date="2026-09-10")
+    await _call(hass, "seedlings_ready", device_id=dev["back"])
+    await _call(hass, "log_event", kind="herbicide", product="prodiamine")
+    assert [call.data["message"] for call in calls][-1:] == [
+        "Back: Prodiamine logged, but the label says to wait 60 days and 2 mows after "
+        "seeding (seeded Sep 10: 16 days, 0 mows so far). It can injure new grass."]
+    await _call(hass, "log_event", kind="herbicide", product="dithiopyr")
+    assert not any("Dithiopyr" in call.data["message"] for call in calls)
+
+
 async def test_prep_overseed_inside_a_seeding_block_warns(hass, freezer):
     c, dev, calls = await _setup(hass, freezer, notify=True)
     await _call(hass, "log_event", kind="herbicide", product="dithiopyr",

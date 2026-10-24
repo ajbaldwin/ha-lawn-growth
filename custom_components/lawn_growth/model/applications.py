@@ -25,11 +25,16 @@ class Product:
     heat_field: str = ""        # a lower heat limit than the spray-day default
     followup_field: str = ""    # days to a follow-up reminder (0: off)
     seedling_field: str = ""    # mows after Seedlings ready before it may go on
+    # Pre-emergent label settings: days and mows after seeding before it may go on
+    new_turf_days_field: str = ""
+    new_turf_mows_field: str = ""
 
 
-# Seeding waits are label placeholders (spec "Open questions"); they live in Tunables.
+# Label settings live in Tunables ("other" products' are placeholders).
 PRODUCTS = {p.key: p for p in (
-    Product("prodiamine", "Prodiamine", True, False, "prodiamine_seeding_block_days"),
+    Product("prodiamine", "Prodiamine", True, False, "prodiamine_seeding_block_days",
+            new_turf_days_field="prodiamine_new_turf_days",
+            new_turf_mows_field="prodiamine_new_turf_mows"),
     Product("dithiopyr", "Dithiopyr", True, False, "dithiopyr_seeding_block_days"),
     Product("mesotrione", "Mesotrione", False, True,
             rainfree_field="mesotrione_rainfree_hours"),
@@ -78,6 +83,23 @@ def followup_days(product: str, tun) -> int:
 
 def seedling_mows(product: str, tun) -> int:
     return int(_setting(product, "seedling_field", tun))
+
+
+def new_turf_wait(product: str, seeded: Optional[date], mows, day: date,
+                  tun) -> Optional[str]:
+    """None when this pre-emergent may go on grass seeded on `seeded`; else why not.
+    `mows` are the area's mow dates; only those after the seeding count."""
+    days = int(_setting(product, "new_turf_days_field", tun))
+    need = int(_setting(product, "new_turf_mows_field", tun))
+    if (days <= 0 and need <= 0) or seeded is None or seeded > day             or (day - seeded).days > tun.post_seeding_relevant_days:
+        return None
+    elapsed = (day - seeded).days
+    done = sum(1 for m in mows if seeded < m <= day)
+    if elapsed >= days and done >= need:
+        return None
+    return (f"the label says to wait {days} days and {need} mows after seeding (seeded "
+            f"{fmt_day(seeded)}: {elapsed} days, {done} mow{'' if done == 1 else 's'} "
+            f"so far)")
 
 
 @dataclass(frozen=True)

@@ -50,11 +50,14 @@ class Tunables:
     soil_window_days: int = 5
     soil_min_valid_days: int = 3
     soil_days_kept: int = 7
-    # application log and herbicide seeding waits (label placeholders: check the label)
+    # application log and herbicide seeding waits (from the product labels; "other"
+    # products are placeholders)
     application_retention_days: int = 400
-    prodiamine_seeding_block_days: int = 112            # 16 weeks
+    prodiamine_seeding_block_days: int = 122            # 4 months (label's lowest rate)
     dithiopyr_seeding_block_days: int = 84              # 12 weeks
-    triclopyr_ester_seeding_block_days: int = 28        # 4 weeks
+    triclopyr_ester_seeding_block_days: int = 21        # 3 weeks
+    prodiamine_new_turf_days: int = 60                  # label: 60 days and 2 mows after
+    prodiamine_new_turf_mows: int = 2                   # seeding, whichever is longer
     other_pre_emergent_seeding_block_days: int = 84
     other_post_emergent_seeding_block_days: int = 28
     # pre-emergent window (lawn-wide; spring). Soil5 °F / GDD50 per stage:
@@ -117,7 +120,7 @@ class Tunables:
     mesotrione_rainfree_hours: int = 24
     triclopyr_ester_rainfree_hours: int = 24
     other_post_emergent_rainfree_hours: int = 24
-    triclopyr_ester_heat_limit_f: float = 80.0
+    triclopyr_ester_heat_limit_f: float = 80.0   # our margin: the label gives no number
     triclopyr_ester_followup_days: int = 21
     other_post_emergent_followup_days: int = 0
     triclopyr_ester_seedling_mows: int = 3   # mows after Seedlings ready

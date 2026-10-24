@@ -33,6 +33,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
         self.area_options = {a[AREA_KEY]: a for a in entry.options.get(CONF_AREAS, [])}
         self.areas = {k: presets.area_from_options(a) for k, a in self.area_options.items()}
         self.soil_probes: dict[str, tuple] = {}     # area key -> inputs.SoilProbe tuple
+        self._soil_read = False                     # this run read soil history
         self._lock = asyncio.Lock()
         # Off while HA is still starting: inputs such as soil-moisture sensors may not
         # be up yet, and today's accrual happens once. The run at HA start turns it on.
@@ -143,6 +144,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                 detail = ForecastDetail()
             season = inputs.in_season(self.hass, self._opts.get(CONF_SEASON))
             self._find_soil_probes()
+            self._soil_read = False
             if self.accrual_enabled and inputs.recorder_ready(self.hass):
                 await self._async_update_temperature_signals(today)
             results = {}
@@ -278,8 +280,22 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
                 names, today=today, tun=tun)
             followups, self.store.followups_notified = notify.decide_followups(
                 apps, names, self.store.followups_notified, today=today, tun=tun)
-            messages += spray + followups
+            messages += spray + followups + self._decide_probes(names)
         self.calendar = appcalendar.calendar_events(self.calendar_state(today))
+        return messages
+
+    def _decide_probes(self, names: dict) -> list:
+        """The probes-back-online push; records each area's soil source for the next
+        daily run. Skipped when this run couldn't read soil history: missing days then
+        say nothing about the probes."""
+        if not self._soil_read:
+            return []
+        now = {k: (soiltemp.source_for(a.soil5) if self.soil_probes.get(k) else None)
+               for k, a in self.last_signals.items()}
+        messages, recorded = notify.decide_probes(
+            {k: self.store.areas[k].soil_source_last for k in now}, now, names)
+        for k, source in recorded.items():
+            self.store.areas[k].soil_source_last = source
         return messages
 
     def applications(self, today: date) -> list:
@@ -329,6 +345,7 @@ class LawnGrowthCoordinator(DataUpdateCoordinator[dict]):
             for key, probes in self.soil_probes.items():
                 if probes:
                     await self._async_update_soil(key, probes, today)
+            self._soil_read = True
         except Exception as err:  # noqa: BLE001 - signals must never fail the run
             _LOGGER.warning("Lawn Growth could not read soil/outdoor temperature "
                             "history: %s", err)

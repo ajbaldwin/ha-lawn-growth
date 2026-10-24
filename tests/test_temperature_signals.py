@@ -6,7 +6,7 @@ from homeassistant.core import State
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.lawn_growth import const, inputs
 
@@ -249,3 +249,80 @@ async def test_gdd_keeps_counting_out_of_season(hass, freezer, monkeypatch):
     await entry.runtime_data.async_run()
     await hass.async_block_till_done()
     assert float(hass.states.get(GDD).state) == pytest.approx(18.0)
+
+
+def _probe_pushes(calls) -> list:
+    return [x.data["message"] for x in calls
+            if x.data["title"] == "Lawn Growth — soil probes"]
+
+
+async def test_probes_back_online_pushed_on_the_switch_to_soil(hass, freezer, monkeypatch):
+    """Spec §1.3: one push when an area's soil source switches from GDD to the probes,
+    decided on daily runs (like the window pushes)."""
+    calls = async_mock_service(hass, "notify", "phone")
+    entry, _, _ = await _setup_signals(hass, freezer, monkeypatch,
+                                       **{const.CONF_NOTIFY: "notify.phone"})
+    c = entry.runtime_data
+    await c.async_run(send_notifications=True)
+    await hass.async_block_till_done()
+    assert _probe_pushes(calls) == []      # the first daily run only records the source
+    assert c.store.areas["lawn"].soil_source_last == "geodrops"
+    c.store.areas["lawn"].soil_source_last = "gdd"     # as if the probes had been out
+    await c.async_run()                    # not a daily run: nothing decided yet
+    await c.async_run(send_notifications=True)
+    await hass.async_block_till_done()
+    assert _probe_pushes(calls) == [
+        "Soil probes back online in Lawn — application timing now uses soil temperature."]
+    await c.async_run(send_notifications=True)
+    await hass.async_block_till_done()
+    assert len(_probe_pushes(calls)) == 1
+
+
+async def test_no_probes_back_online_while_still_on_gdd(hass, freezer, monkeypatch):
+    calls = async_mock_service(hass, "notify", "phone")
+    entry, _, _ = await _setup_signals(
+        hass, freezer, monkeypatch, soil=_good_day(50.0, quality="training"),
+        **{const.CONF_NOTIFY: "notify.phone"})
+    c = entry.runtime_data
+    c.store.areas["lawn"].soil_source_last = "gdd"
+    await c.async_run(send_notifications=True)
+    await hass.async_block_till_done()
+    assert _probe_pushes(calls) == [] and c.store.areas["lawn"].soil_source_last == "gdd"
+
+
+async def test_no_probes_back_online_for_new_probes(hass, freezer, monkeypatch):
+    """Probes that start out training read GDD first; good readings later aren't
+    "back" online."""
+    calls = async_mock_service(hass, "notify", "phone")
+    soil = {"day": _good_day(50.0, quality="training", health="calibrating")}
+    entry, _, _ = await _setup_signals(hass, freezer, monkeypatch,
+                                       soil=lambda *a: soil["day"](*a),
+                                       **{const.CONF_NOTIFY: "notify.phone"})
+    c = entry.runtime_data
+    await c.async_run(send_notifications=True)
+    c.store.areas["lawn"].soil_days = {}             # re-read as good readings
+    soil["day"] = _good_day(50.0)
+    await c.async_run(send_notifications=True)
+    await hass.async_block_till_done()
+    assert _probe_pushes(calls) == []
+    assert c.store.areas["lawn"].soil_source_last == "geodrops"
+
+
+async def test_probes_back_online_not_decided_when_soil_history_fails(
+        hass, freezer, monkeypatch):
+    """A recorder outage leaves soil days missing; it says nothing about the probes,
+    so the recorded source is left as it was."""
+    entry, _, _ = await _setup_signals(hass, freezer, monkeypatch)
+    c = entry.runtime_data
+    c.store.areas["lawn"].soil_source_last = "geodrops"
+    c.store.areas["lawn"].soil_days = {}
+
+    async def boom(*args):
+        raise RuntimeError("recorder down")
+
+    monkeypatch.setattr(inputs, "async_soil_day", boom)
+    await c.async_run(send_notifications=True)
+    assert c.store.areas["lawn"].soil_source_last == "geodrops"
+    monkeypatch.setattr(inputs, "recorder_ready", lambda h: False)
+    await c.async_run(send_notifications=True)
+    assert c.store.areas["lawn"].soil_source_last == "geodrops"

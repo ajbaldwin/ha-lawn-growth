@@ -207,6 +207,25 @@ def decide_windows(windows: dict, names: dict, *, apps, tun, today: date,
     return messages, out_windows
 
 
+# --- soil probes back online (spec §1.3) -------------------------------------------
+
+def decide_probes(last: dict, now: dict, names: dict):
+    """"Soil probes back online" for the areas whose soil source switched from GDD to
+    the probes since the last daily run. `last` (as recorded) and `now` map an area to
+    "geodrops", "gdd" or None (no probes). An area is recorded only once its probes
+    have been online: new probes start out training, so their first GDD days aren't
+    an outage. A first run pushes nothing. Areas switching together share one message.
+    Returns (messages, what to record)."""
+    recorded = {k: src if src == "geodrops" or last.get(k) else None
+                for k, src in now.items()}
+    back = [k for k, src in now.items() if src == "geodrops" and last.get(k) == "gdd"]
+    if not back:
+        return [], recorded
+    return [Message(f"{TITLE} — soil probes", (
+        f"Soil probes back online in {', '.join(names.get(k, k) for k in back)} — "
+        f"application timing now uses soil temperature."))], recorded
+
+
 # --- post-emergent: spray days, follow-ups, don't mow ------------------------------
 
 POST_TITLE = f"{TITLE} — post-emergent"

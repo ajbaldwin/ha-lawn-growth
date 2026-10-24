@@ -185,3 +185,36 @@ def test_dont_mow_text():
     assert notify.dont_mow_text(["Front & Side"], "mesotrione", date(2027, 5, 5), True) == (
         "Front & Side: Mesotrione logged — don't mow until May 5 so it can work. "
         "Mowing allowed stays off until then.")
+
+
+# --- soil probes back online (spec §1.3) -------------------------------------------
+
+def test_probes_back_online_once_per_switch_and_areas_share_one_message():
+    [msg], recorded = notify.decide_probes({"front": "gdd", "back": "gdd"},
+                                           {"front": "geodrops", "back": "geodrops"}, NAMES)
+    assert msg.title == "Lawn Growth — soil probes"
+    assert msg.message == ("Soil probes back online in Front & Side, Back — application "
+                           "timing now uses soil temperature.")
+    assert recorded == {"front": "geodrops", "back": "geodrops"}
+    assert notify.decide_probes(recorded, recorded, NAMES)[0] == []
+
+
+def test_probes_back_online_only_on_a_gdd_to_soil_switch():
+    msgs, recorded = notify.decide_probes({"front": "geodrops", "back": "gdd"},
+                                          {"front": "gdd", "back": "gdd"}, NAMES)
+    assert msgs == [] and recorded == {"front": "gdd", "back": "gdd"}
+    # a first run (or an upgrade) has nothing to compare with
+    assert notify.decide_probes({}, {"front": "geodrops"}, NAMES) == (
+        [], {"front": "geodrops"})
+    # probes taken out of the area's settings forget their source
+    assert notify.decide_probes({"front": "gdd"}, {"front": None}, NAMES) == (
+        [], {"front": None})
+
+
+def test_probes_never_online_are_not_back_online():
+    """New probes start out training, so the area reads GDD first: it isn't tracked
+    until the probes have been online once."""
+    msgs, recorded = notify.decide_probes({"front": None}, {"front": "gdd"}, NAMES)
+    assert msgs == [] and recorded == {"front": None}
+    assert notify.decide_probes(recorded, {"front": "geodrops"}, NAMES) == (
+        [], {"front": "geodrops"})

@@ -88,6 +88,11 @@ def test_prodiamine_waits_for_the_second_mow():
         "65 days, 1 mow so far)")
 
 
+def test_new_turf_wait_says_1_day():
+    assert ap.new_turf_wait("prodiamine", SEEDED, (), date(2026, 9, 2), TUN).endswith(
+        "(seeded Sep 1: 1 day, 0 mows so far)")
+
+
 def test_new_turf_wait_only_for_prodiamine_and_a_recent_seeding():
     assert ap.new_turf_wait("dithiopyr", SEEDED, (), date(2026, 9, 10), TUN) is None
     assert ap.new_turf_wait("prodiamine", None, (), date(2026, 9, 10), TUN) is None

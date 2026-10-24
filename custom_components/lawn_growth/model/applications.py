@@ -98,7 +98,7 @@ def new_turf_wait(product: str, seeded: Optional[date], mows, day: date,
     if elapsed >= days and done >= need:
         return None
     return (f"the label says to wait {days} days and {need} mows after seeding (seeded "
-            f"{fmt_day(seeded)}: {elapsed} days, {done} mow{'' if done == 1 else 's'} "
+            f"{fmt_day(seeded)}: {elapsed} day{'' if elapsed == 1 else 's'}, {done} mow{'' if done == 1 else 's'} "
             f"so far)")
 
 

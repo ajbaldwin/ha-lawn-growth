@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.11 — Herbicide label defaults
+- **Seeding waits now follow the product labels.** Prodiamine blocks seeding for 4 months instead of 16 weeks (its label's interval at the lowest rate; a higher rate needs longer), and triclopyr ester for 3 weeks instead of 4.
+- **Prodiamine on new grass now warns.** Logging it on grass seeded less than 60 days ago, or mowed fewer than 2 times since seeding, sends a warning, as its label says.
+- **The pre-emergent notifications name any area that's too new for prodiamine** and say to skip it or use dithiopyr there, and when every area is too new the Pre-emergent product select suggests dithiopyr.
+- **A notification says when an area's soil probes are back online**, once Lawn Growth switches that area from growing degree days back to soil temperature (about 3 days of good readings after the probes go back in).
+
 ## 0.1.0-beta.10 — Calendars kept in step
 - **Calendars that can edit events now mirror Lawn Growth's calendar.** A Local Calendar or Google Calendar picked under Copy events to calendars now shows everything on Lawn Growth's own calendar, estimates included, and Lawn Growth moves an estimate when its date changes and removes events that no longer apply, such as a skipped window.
 - **Your own events are safe.** Lawn Growth only changes events it added (the ones whose description ends with a "Lawn Growth key" line), and leaves events older than a year in place as a record.
